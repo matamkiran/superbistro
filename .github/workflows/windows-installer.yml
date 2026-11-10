@@ -1,0 +1,42 @@
+# Builds the Windows installer on GitHub's Windows machines, so you don't need a Windows PC
+# to make it. Run it from the Actions tab ("Run workflow") or by pushing a tag like v1.0.0.
+# Download SuperBistro-*.exe and the portable zip from the run's "Artifacts" section.
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Install WiX Toolset 3 (needed by jpackage for .exe)
+        run: choco install wixtoolset --version=3.14.1 -y --no-progress
+        shell: pwsh
+
+      - name: Build and test the app
+        run: .\mvnw.cmd -B package
+        shell: cmd
+
+      - name: Build installer and portable zip
+        run: |
+          set "PATH=%PATH%;C:\Program Files (x86)\WiX Toolset v3.14\bin"
+          call packaging\windows\build-installer.bat
+        shell: cmd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SuperBistro-windows
+          path: |
+            dist/*.exe
+            dist/*.zip

@@ -1,0 +1,117 @@
+Name,Category,Price,Veg
+Lassi,Beverages,49,yes
+Lime Mojito,Beverages,69,yes
+Black Currant Mojito,Beverages,69,yes
+Mango Lassi,Beverages,79,yes
+Banana Milkshake,Milkshakes,79,yes
+Vanilla Milkshake,Milkshakes,99,yes
+Chocolate Milkshake,Milkshakes,99,yes
+Strawberry Milkshake,Milkshakes,99,yes
+Kesar Pista Milkshake,Milkshakes,99,yes
+Oreo Milkshake,Milkshakes,109,yes
+KitKat Milkshake,Milkshakes,109,yes
+Dry Fruit Milkshake,Milkshakes,119,yes
+Lemon Juice,Fresh Juices,49,yes
+Watermelon Juice,Fresh Juices,69,yes
+Apple Juice,Fresh Juices,99,yes
+Pomegranate Juice,Fresh Juices,99,yes
+Pineapple Juice,Fresh Juices,99,yes
+Classic Maggi,Maggi,49,yes
+Egg Maggi,Maggi,69,no
+Vegetable Maggi,Maggi,69,yes
+Cheese Blast Maggi,Maggi,89,yes
+All in One Salsa Maggi,Maggi,109,yes
+Classic Salted French Fries,Fries,89,yes
+Peri Peri Fries,Fries,109,yes
+Paprika Fries,Fries,109,yes
+Cheese Loaded Fries,Fries,139,yes
+Signature Chilli Fries,Fries,139,yes
+Honey Potato Chilli Fries,Fries,149,yes
+Grilled Veg Sandwich,Sandwiches,79,yes
+Egg Sandwich,Sandwiches,79,no
+Egg Masala Sandwich,Sandwiches,89,no
+Grilled Veg Cheese Sandwich,Sandwiches,99,yes
+Cheese Corn Sandwich,Sandwiches,99,yes
+Egg Cheese Sandwich,Sandwiches,99,no
+Paneer Sandwich,Sandwiches,119,yes
+Smiley,Bites,99,yes
+Potato Kievs,Bites,99,yes
+Veg Cutlet,Bites,99,yes
+Veg Spring Roll,Bites,99,yes
+Classic Veg Nuggets,Bites,99,yes
+Veg Corn Cheese Nuggets,Bites,109,yes
+Cheese Jalapeno Cutlet,Bites,119,yes
+Bread Butter,Bread,49,yes
+Bread Jam,Bread,49,yes
+Double Egg Omelette,Bread,59,no
+Bread Omelette,Bread,69,no
+Bun Maska,Bread,69,yes
+Egg Bhurji,Bread,79,no
+Cheese Bread Omelette,Bread,89,no
+Steamed Rice,Main Plates,59,yes
+Curd Rice,Main Plates,79,yes
+Lemon Rice,Main Plates,79,yes
+Tomato Rice,Main Plates,79,yes
+Ghee Rice,Main Plates,99,yes
+Jeera Rice,Main Plates,99,yes
+Dal Khichdi,Main Plates,119,yes
+Mix Veg Curry,Sides & Curry,109,yes
+Egg Curry,Sides & Curry,109,no
+Dal Fry,Sides & Curry,129,yes
+Dal Tadka,Sides & Curry,129,yes
+Mushroom Curry,Sides & Curry,159,yes
+Paneer Curry,Sides & Curry,179,yes
+Paneer Butter Masala,Sides & Curry,199,yes
+Gobi Manchurian,Starters,99,yes
+Gobi Chilli,Starters,99,yes
+Gobi Pepper Dry,Starters,99,yes
+Baby Corn Manchurian,Starters,119,yes
+Baby Corn Chilli,Starters,119,yes
+Baby Corn Pepper Dry,Starters,119,yes
+Mushroom Manchurian,Starters,139,yes
+Mushroom Chilli,Starters,139,yes
+Mushroom Pepper Dry,Starters,139,yes
+Paneer Manchurian,Starters,159,yes
+Paneer Chilli,Starters,159,yes
+Paneer Pepper Dry,Starters,159,yes
+Veg Fried Rice,Fried Rice,110,yes
+Veg Schezwan Fried Rice,Fried Rice,130,yes
+Egg Fried Rice,Fried Rice,130,no
+Egg Schezwan Fried Rice,Fried Rice,150,no
+Gobi Fried Rice,Fried Rice,130,yes
+Gobi Schezwan Fried Rice,Fried Rice,150,yes
+Paneer Fried Rice,Fried Rice,150,yes
+Paneer Schezwan Fried Rice,Fried Rice,170,yes
+Mushroom Fried Rice,Fried Rice,140,yes
+Mushroom Schezwan Fried Rice,Fried Rice,160,yes
+Veg Noodles,Noodles,120,yes
+Veg Schezwan Noodles,Noodles,140,yes
+Egg Noodles,Noodles,140,no
+Egg Schezwan Noodles,Noodles,160,no
+Gobi Noodles,Noodles,140,yes
+Gobi Schezwan Noodles,Noodles,160,yes
+Mushroom Noodles,Noodles,150,yes
+Mushroom Schezwan Noodles,Noodles,170,yes
+Paneer Noodles,Noodles,160,yes
+Paneer Schezwan Noodles,Noodles,180,yes
+Chicken Curry,Non-Veg Curries,179,no
+Chicken Kolhapuri,Non-Veg Curries,179,no
+Chicken Hyderabadi,Non-Veg Curries,179,no
+Chicken Keema,Non-Veg Curries,179,no
+Butter Chicken,Non-Veg Curries,218,no
+Chicken Kebab,Non-Veg Starters,180,no
+Lemon Chicken,Non-Veg Starters,180,no
+Dragon Chicken,Non-Veg Starters,180,no
+Chicken Pepper Dry,Non-Veg Starters,180,no
+Chilli Chicken,Non-Veg Starters,180,no
+Andhra Style Chilli Chicken,Non-Veg Starters,199,no
+Chicken Dry Fry,Non-Veg Starters,180,no
+Non-Veg Thali,Non-Veg Starters,349,no
+Chicken Manchurian,Non-Veg Starters,180,no
+Chicken Fried Rice,Fried Rice,179,no
+Chicken Schezwan Fried Rice,Fried Rice,189,no
+Chicken Schezwan Triple Fried Rice,Fried Rice,199,no
+Chicken Biryani,Biryani,199,no
+Kebab Biryani,Biryani,199,no
+Chicken Noodles,Noodles,169,no
+Chicken Schezwan Noodles,Noodles,179,no

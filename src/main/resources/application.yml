@@ -1,0 +1,51 @@
+# Every value can be overridden with an environment variable (see README / .env.example).
+spring:
+  application:
+    name: superbistro
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/superbistro}
+    username: ${DB_USER:superbistro}
+    password: ${DB_PASSWORD:superbistro}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  session:
+    jdbc:
+      # Tables are created by Flyway (V2__sessions.sql).
+      initialize-schema: never
+
+server:
+  port: ${PORT:8080}
+  mime-mappings:
+    webmanifest: application/manifest+json
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        same-site: lax
+        http-only: true
+
+superbistro:
+  # Orders are numbered #1, #2, ... per restaurant per day in this time zone.
+  time-zone: ${TIME_ZONE:Asia/Kolkata}
+  # Set ALLOW_SIGNUP=false on a private install once your restaurant account exists.
+  allow-signup: ${ALLOW_SIGNUP:true}
+  # EMBEDDED_DB=true: start a built-in PostgreSQL in DATA_DIR instead of connecting to DB_URL.
+  # Used by the Windows installer so the client installs nothing else.
+  embedded-db: ${EMBEDDED_DB:false}
+  # Settings, backups and the built-in database live here. Default: C:\\ProgramData\\SuperBistro on Windows,
+  # ~/SuperBistro elsewhere (worked out at startup when DATA_DIR is not set).
+  data-dir: ${DATA_DIR:}
+  # Path to PostgreSQL's pg_dump for backups. Empty = found automatically.
+  pg-dump: ${PG_DUMP:}
+  # Open the app in the default browser once it has started (desktop installs).
+  open-browser: ${OPEN_BROWSER:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

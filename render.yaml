@@ -1,0 +1,25 @@
+# Render Blueprint: free web service built from the Dockerfile.
+# The database is NOT created here: Render's free PostgreSQL is deleted after 30 days.
+# Create a free PostgreSQL on Neon (neon.com) and paste its details into DB_URL / DB_USER / DB_PASSWORD.
+services:
+  - type: web
+    name: superbistro
+    runtime: docker
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_URL
+        sync: false   # e.g. jdbc:postgresql://ep-xxxx.ap-southeast-1.aws.neon.tech/neondb?sslmode=require
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: TIME_ZONE
+        value: Asia/Kolkata
+      - key: ALLOW_SIGNUP
+        value: "true"
+      # Render terminates HTTPS in front of the app.
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: framework
+      - key: SERVER_SERVLET_SESSION_COOKIE_SECURE
+        value: "true"

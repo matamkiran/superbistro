@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super Bistro Setup</title>
+<style>
+  :root { --bg:#f2f5f1; --surface:#fff; --sunk:#e7ede6; --fg:#17221b; --muted:#5a695f; --line:#d3ddd4; --accent:#1d6a44; --accent-fg:#fff; --accent-soft:#dbeee2; --bad:#b3313b; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1410; --surface:#172019; --sunk:#111913; --fg:#e5ece6; --muted:#98a99d; --line:#29352c; --accent:#4cbc80; --accent-fg:#07130c; --accent-soft:#1b3325; --bad:#f0636f; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 700 24px "Segoe UI", system-ui, sans-serif; }
+  .mark { width: 24px; height: 24px; border-radius: 50% 50% 50% 4px; background: var(--accent); }
+  h2 { margin: 0 0 2px; font-size: 17px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+  .step { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+  .row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  input[type=text], input[type=password], input[type=email], input[type=number] { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); font: inherit; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; font-weight: 500; color: var(--fg); }
+  .check input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); }
+  .check small { display: block; color: var(--muted); font-weight: 400; }
+  button { padding: 12px; border: 0; border-radius: 8px; background: var(--accent); color: var(--accent-fg); font: 600 16px inherit; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .err { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 500; }
+  .ok { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
+  code { background: var(--sunk); padding: 1px 5px; border-radius: 4px; font-size: 12px; overflow-wrap: anywhere; }
+  @media (max-width: 520px) { .row, .row2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><span class="mark"></span>Super Bistro setup</div>
+  <p class="muted">This runs once. Super Bistro will create its own database inside your PostgreSQL and then open the order desk.</p>
+
+  <form id="f" autocomplete="off">
+    <div class="card">
+      <div class="step">Step 1 · PostgreSQL</div>
+      <p class="muted">Install <b>PostgreSQL 15</b> first if you haven't. Use the <b>postgres</b> user and the password you chose while installing it. Super Bistro only uses it to create its own login and database.</p>
+      <div class="row">
+        <label>Server<input type="text" name="host" value="localhost" required></label>
+        <label>Port<input type="number" name="port" value="5432" required></label>
+      </div>
+      <div class="row2">
+        <label>Admin user<input type="text" name="adminUser" value="postgres" required></label>
+        <label>Admin password<input type="password" name="adminPassword" required></label>
+      </div>
+      <details>
+        <summary class="muted">More options</summary>
+        <div style="display:grid;gap:10px;margin-top:10px">
+          <label>Database name<input type="text" name="dbName" value="superbistro" pattern="[a-z_][a-z0-9_]*"></label>
+          <label>pg_dump location (for backups) <input type="text" name="pgDump" id="pgDump" placeholder="Found automatically"></label>
+        </div>
+      </details>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="step">Step 2 · Your restaurant</div>
+      <label>Restaurant name<input type="text" name="restaurantName" placeholder="e.g. Super Bistro" required></label>
+      <div class="row2">
+        <label>Your name<input type="text" name="ownerName" required></label>
+        <label>Email (your login)<input type="email" name="email" required></label>
+      </div>
+      <label>Password (at least 8 characters)<input type="password" name="password" minlength="8" required></label>
+      <p class="muted">You become the main admin: menu, staff logins, settings and backups.</p>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="step">Step 3 · Options</div>
+      <label class="check"><input type="checkbox" name="allowSignup">
+        <span>Let other restaurants sign up on this server<small>Turn on if you host Super Bistro for several restaurants. Leave off for a single restaurant.</small></span></label>
+      <label class="check" id="autostartRow" hidden><input type="checkbox" name="autostart" checked>
+        <span>Start Super Bistro automatically when Windows starts<small>Recommended for the billing PC.</small></span></label>
+    </div>
+
+    <div id="msg" style="margin-top:16px"></div>
+    <button id="go" style="margin-top:16px;width:100%">Set up Super Bistro</button>
+  </form>
+  <p class="muted" id="where"></p>
+</main>
+<script>
+  const $ = (s) => document.querySelector(s);
+  fetch("/setup/status").then((r) => r.json()).then((s) => {
+    if (s.windows) $("#autostartRow").hidden = false;
+    if (s.pgDump) $("#pgDump").placeholder = "Found: " + s.pgDump;
+    $("#where").innerHTML = "Settings and backups will be kept in <code></code>";
+    $("#where code").textContent = s.dataDir;
+  }).catch(() => {});
+
+  const show = (cls, text) => { const m = $("#msg"); m.className = cls; m.textContent = text; m.scrollIntoView({ block: "nearest" }); };
+
+  $("#f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("#go");
+    btn.disabled = true; btn.textContent = "Setting up…";
+    show("", "");
+    try {
+      const res = await fetch("/setup/install", { method: "POST", body: new URLSearchParams(new FormData(e.target)) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Setup failed");
+      show("ok", "Database ready. Starting Super Bistro… this takes about 20 seconds.");
+      btn.textContent = "Starting…";
+      for (let i = 0; i < 120; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        try {
+          const r = await fetch("/api/auth/config", { cache: "no-store" });
+          if (r.ok) { location.href = "/"; return; }
+        } catch { /* server switching over */ }
+      }
+      show("err", "Super Bistro is taking longer than expected to start. Check the console window for errors, then reload this page.");
+    } catch (ex) {
+      show("err", ex.message);
+      btn.disabled = false; btn.textContent = "Set up Super Bistro";
+    }
+  });
+</script>
+</body>
+</html>

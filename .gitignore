@@ -1,0 +1,10 @@
+target/
+frontend/node/
+frontend/node_modules/
+*.log
+.env
+.idea/
+.vscode/
+*.iml
+.DS_Store
+local-demo-login.txt

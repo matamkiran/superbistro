@@ -1,0 +1,135 @@
+package com.superbistro.auth;
+
+import java.math.BigDecimal;
+import java.util.Locale;
+import java.util.Map;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+import com.superbistro.common.ApiException;
+import com.superbistro.config.AppProperties;
+import com.superbistro.tenant.Restaurant;
+import com.superbistro.tenant.RestaurantRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    public record SignupRequest(
+        @NotBlank @Size(max = 80) String restaurantName,
+        @NotBlank @Size(max = 80) String name,
+        @NotBlank @Email @Size(max = 160) String email,
+        @NotBlank @Size(min = 8, max = 72, message = "must be 8 to 72 characters") String password) {
+    }
+
+    public record LoginRequest(@NotBlank String email, @NotBlank String password) {
+    }
+
+    public record UserDto(String id, String name, String email, Role role, boolean platformAdmin) {
+        static UserDto of(CurrentUser u) {
+            return new UserDto(u.id().toString(), u.name(), u.email(), u.role(), u.platformAdmin());
+        }
+    }
+
+    public record RestaurantDto(String id, String name, BigDecimal gstPct, String address, String phone, String gstin, String billFooter) {
+        public static RestaurantDto of(Restaurant r) {
+            return new RestaurantDto(r.getId().toString(), r.getName(), r.getGstPct(), r.getAddress(), r.getPhone(),
+                r.getGstin(), r.getBillFooter());
+        }
+    }
+
+    public record SessionDto(UserDto user, RestaurantDto restaurant) {
+    }
+
+    private final AppUserRepository users;
+    private final RestaurantRepository restaurants;
+    private final PasswordEncoder encoder;
+    private final AuthenticationManager authManager;
+    private final SecurityContextRepository contextRepository;
+    private final AppProperties props;
+
+    public AuthController(AppUserRepository users, RestaurantRepository restaurants, PasswordEncoder encoder,
+                          AuthenticationManager authManager, SecurityContextRepository contextRepository,
+                          AppProperties props) {
+        this.users = users;
+        this.restaurants = restaurants;
+        this.encoder = encoder;
+        this.authManager = authManager;
+        this.contextRepository = contextRepository;
+        this.props = props;
+    }
+
+    /** Public: lets the login screen know whether to offer "Create a restaurant". */
+    @GetMapping("/config")
+    public Map<String, Object> config() {
+        return Map.of("allowSignup", props.allowSignup());
+    }
+
+    @PostMapping("/signup")
+    @Transactional
+    public SessionDto signup(@Valid @RequestBody SignupRequest req, HttpServletRequest http, HttpServletResponse res) {
+        if (!props.allowSignup()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "New sign-ups are turned off on this server");
+        }
+        String email = req.email().trim().toLowerCase(Locale.ROOT);
+        if (users.existsByEmail(email)) {
+            throw new ApiException(HttpStatus.CONFLICT, "That email already has an account. Sign in instead.");
+        }
+        Restaurant r = restaurants.save(new Restaurant(req.restaurantName().trim(), new BigDecimal("5.00")));
+        AppUser owner = new AppUser(r.getId(), email, req.name().trim(), encoder.encode(req.password()), Role.OWNER);
+        owner.setPlatformAdmin(users.count() == 0); // the very first account on a server runs it
+        users.save(owner);
+        return startSession(email, req.password(), http, res);
+    }
+
+    @PostMapping("/login")
+    public SessionDto login(@Valid @RequestBody LoginRequest req, HttpServletRequest http, HttpServletResponse res) {
+        return startSession(req.email().trim().toLowerCase(Locale.ROOT), req.password(), http, res);
+    }
+
+    @GetMapping("/me")
+    public SessionDto me(@AuthenticationPrincipal CurrentUser me) {
+        Restaurant r = restaurants.findById(me.restaurantId()).orElseThrow(() -> ApiException.notFound("Restaurant"));
+        return new SessionDto(UserDto.of(me), RestaurantDto.of(r));
+    }
+
+    private SessionDto startSession(String email, String password, HttpServletRequest http, HttpServletResponse res) {
+        Authentication auth = authManager.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, password));
+        // New session id on every sign-in (session fixation protection).
+        HttpSession old = http.getSession(false);
+        if (old != null) {
+            old.invalidate();
+        }
+        http.getSession(true);
+        SecurityContext ctx = SecurityContextHolder.createEmptyContext();
+        ctx.setAuthentication(auth);
+        SecurityContextHolder.setContext(ctx);
+        contextRepository.saveContext(ctx, http, res);
+
+        CurrentUser me = (CurrentUser) auth.getPrincipal();
+        Restaurant r = restaurants.findById(me.restaurantId()).orElseThrow(() -> ApiException.notFound("Restaurant"));
+        return new SessionDto(UserDto.of(me), RestaurantDto.of(r));
+    }
+}

@@ -1,0 +1,44 @@
+# One command on any machine with Docker (Windows, Mac, Linux, a cloud VM):
+#   docker compose up -d --build
+# then open http://localhost:8080
+#
+# Settings come from a .env file next to this one (copy .env.example to .env).
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: superbistro
+      POSTGRES_USER: superbistro
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superbistro -d superbistro"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/superbistro
+      DB_USER: superbistro
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      TIME_ZONE: ${TIME_ZONE:-Asia/Kolkata}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - appdata:/data   # backups are written here too
+
+volumes:
+  pgdata:
+  appdata:
