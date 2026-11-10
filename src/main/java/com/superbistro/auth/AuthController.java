@@ -47,9 +47,13 @@ public class AuthController {
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {
     }
 
-    public record UserDto(String id, String name, String email, Role role, boolean platformAdmin) {
+    public record PasswordRequest(@NotBlank String current,
+        @NotBlank @Size(min = 8, max = 72, message = "must be 8 to 72 characters") String password) {
+    }
+
+    public record UserDto(String id, String name, String email, Role role, boolean platformAdmin, boolean mustChangePassword) {
         static UserDto of(CurrentUser u) {
-            return new UserDto(u.id().toString(), u.name(), u.email(), u.role(), u.platformAdmin());
+            return new UserDto(u.id().toString(), u.name(), u.email(), u.role(), u.platformAdmin(), u.mustChangePassword());
         }
     }
 
@@ -84,7 +88,12 @@ public class AuthController {
     /** Public: lets the login screen know whether to offer "Create a restaurant". */
     @GetMapping("/config")
     public Map<String, Object> config() {
-        return Map.of("allowSignup", props.allowSignup());
+        // On a fresh install the login screen shows the ready-made login until its password is changed.
+        boolean firstStart = users.findByEmail(com.superbistro.setup.Launcher.DEFAULT_LOGIN)
+            .map(AppUser::isMustChangePassword).orElse(false);
+        return Map.of("allowSignup", props.allowSignup(), "firstStart", firstStart,
+            "defaultLogin", firstStart ? com.superbistro.setup.Launcher.DEFAULT_LOGIN : "",
+            "defaultPassword", firstStart ? com.superbistro.setup.Launcher.DEFAULT_PASSWORD : "");
     }
 
     @PostMapping("/signup")
@@ -107,6 +116,24 @@ public class AuthController {
     @PostMapping("/login")
     public SessionDto login(@Valid @RequestBody LoginRequest req, HttpServletRequest http, HttpServletResponse res) {
         return startSession(req.email().trim().toLowerCase(Locale.ROOT), req.password(), http, res);
+    }
+
+    /** Any signed-in person: change their own password (required once for the ready-made login). */
+    @PostMapping("/password")
+    @Transactional
+    public SessionDto changePassword(@AuthenticationPrincipal CurrentUser me, @Valid @RequestBody PasswordRequest req,
+                                     HttpServletRequest http, HttpServletResponse res) {
+        AppUser u = users.findById(me.id()).orElseThrow(() -> ApiException.notFound("User"));
+        if (!encoder.matches(req.current(), u.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The current password is wrong");
+        }
+        if (req.password().equals(req.current())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Choose a new password, different from the current one");
+        }
+        u.setPasswordHash(encoder.encode(req.password()));
+        u.setMustChangePassword(false);
+        users.saveAndFlush(u);
+        return startSession(u.getEmail(), req.password(), http, res);
     }
 
     @GetMapping("/me")

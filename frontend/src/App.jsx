@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, setUnauthorizedHandler, startOfDay, DAY } from "./api.js";
-import Login from "./views/Login.jsx";
+import Login, { ChangePassword } from "./views/Login.jsx";
 import Pos from "./views/Pos.jsx";
 import Orders from "./views/Orders.jsx";
 import Top from "./views/Top.jsx";
@@ -57,7 +57,7 @@ export default function App() {
 
   // Load data once signed in, then keep orders fresh for every till / kitchen screen.
   useEffect(() => {
-    if (!session) return;
+    if (!session || session.user.mustChangePassword) return;
     let stop = false;
     loadMenu().catch((e) => showToast(e.message, true));
     const tick = async () => {
@@ -95,6 +95,7 @@ export default function App() {
 
   if (session === undefined) return <div className="boot">Loading…</div>;
   if (session === null) return <Login onSignedIn={(s) => { setSession(s); go("pos"); }} />;
+  if (session.user.mustChangePassword) return <ChangePassword onDone={(s) => { setSession(s); go("pos"); }} onCancel={logout} />;
 
   const isOwner = session.user.role === "OWNER";
   const isAdmin = !!session.user.platformAdmin;

@@ -38,6 +38,9 @@ public class AppUser {
     @Column(name = "platform_admin", nullable = false)
     private boolean platformAdmin;
 
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
     protected AppUser() {
     }
 
@@ -61,4 +64,6 @@ public class AppUser {
     public Instant getCreatedAt() { return createdAt; }
     public boolean isPlatformAdmin() { return platformAdmin; }
     public void setPlatformAdmin(boolean platformAdmin) { this.platformAdmin = platformAdmin; }
+    public boolean isMustChangePassword() { return mustChangePassword; }
+    public void setMustChangePassword(boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
 }

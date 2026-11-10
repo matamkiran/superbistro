@@ -52,10 +52,35 @@ public final class Launcher {
 
         if (configured) {
             startApp(args, dataDir);
+        } else if (!flag("SETUP", "superbistro.setup") && SetupServer.builtinAvailable()) {
+            // Fresh install of the Super Bistro build: no questions. Built-in database, restaurant
+            // "Super Bistro" with its menu, and a ready-made "admin" login that must pick its own
+            // password at first sign-in. (SETUP=true shows the setup page instead, e.g. to use an
+            // existing PostgreSQL server.)
+            autoSetup(dataDir);
+            startApp(args, dataDir);
         } else {
             Files.createDirectories(dataDir);
             new SetupServer(port, dataDir, desktop, () -> startApp(args, dataDir)).start();
         }
+    }
+
+    public static final String DEFAULT_LOGIN = "admin";
+    public static final String DEFAULT_PASSWORD = "superbistro";
+
+    private static void autoSetup(Path dataDir) throws IOException {
+        Properties p = new Properties();
+        p.setProperty("EMBEDDED_DB", "true");
+        p.setProperty("ALLOW_SIGNUP", "false");
+        p.setProperty("READY_MADE", "true");
+        write(dataDir.resolve(CONFIG_FILE), p, "Super Bistro settings, written on first start. Keep this file private.");
+        if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+            SetupServer.registerWindowsAutostart();
+        }
+        System.out.println();
+        System.out.println("  Super Bistro is ready. Sign in with  " + DEFAULT_LOGIN + " / " + DEFAULT_PASSWORD
+            + "  and choose your own password.");
+        System.out.println();
     }
 
     /** Starts the Spring application with any settings saved by setup as defaults. */

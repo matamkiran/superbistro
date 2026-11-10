@@ -225,7 +225,7 @@ public final class SetupServer {
     }
 
     /** Starts Super Bistro when this Windows user signs in (no admin rights needed). */
-    private static void registerWindowsAutostart() {
+    static void registerWindowsAutostart() {
         String exe = System.getProperty("jpackage.app-path");
         if (exe == null) return; // not running from the installed app
         try {

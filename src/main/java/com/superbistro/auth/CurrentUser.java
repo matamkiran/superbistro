@@ -25,6 +25,7 @@ public final class CurrentUser implements UserDetails, Serializable {
     private final Role role;
     private final String passwordHash;
     private final boolean platformAdmin;
+    private final boolean mustChangePassword;
 
     public CurrentUser(AppUser u) {
         this.id = u.getId();
@@ -34,6 +35,7 @@ public final class CurrentUser implements UserDetails, Serializable {
         this.role = u.getRole();
         this.passwordHash = u.getPasswordHash();
         this.platformAdmin = u.isPlatformAdmin();
+        this.mustChangePassword = u.isMustChangePassword();
     }
 
     public UUID id() { return id; }
@@ -43,6 +45,8 @@ public final class CurrentUser implements UserDetails, Serializable {
     public Role role() { return role; }
     /** Main admin of the installation: backups and system settings. */
     public boolean platformAdmin() { return platformAdmin; }
+    /** Signed in with the ready-made login: must choose a password before anything else. */
+    public boolean mustChangePassword() { return mustChangePassword; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

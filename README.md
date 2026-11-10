@@ -49,16 +49,12 @@ Nothing else needs to be installed: Java and a private PostgreSQL database are i
 1. **Install Super Bistro** — run `SuperBistro-1.0.0.exe`. If Windows says "Windows protected your PC",
    click **More info → Run anyway** (the installer isn't code-signed).
 2. **Open Super Bistro** from the Start menu. A black console window opens (that's Super Bistro running,
-   keep it open) and a setup page opens in the browser:
-   - **Step 1 · Database:** keep **Built-in database** (recommended). Super Bistro keeps its data in
-     `C:\ProgramData\SuperBistro\pgdata`.
-     Choose *My own PostgreSQL server* only if PostgreSQL 15 is already installed and you want to use it
-     (server `localhost`, port `5432`, user `postgres`, the password chosen while installing PostgreSQL).
-   - Your restaurant name, your name, email and password (you become the main admin).
-   - Tick *Start Super Bistro automatically when Windows starts* for the billing PC.
-3. Press **Set up Super Bistro**. The first start takes up to a minute, then the order desk opens.
-4. **Menu → Import**: paste your menu from Excel (columns Name, Category, Price, Veg).
-   The Super Bistro menu is ready in [`menus/super-bistro-menu.csv`](menus/super-bistro-menu.csv).
+   keep it open). There are no setup questions: the first start (up to a minute) creates the built-in
+   database in `C:\ProgramData\SuperBistro\pgdata`, the restaurant **Super Bistro** with its full menu
+   (116 dishes, GST 0), turns on *start with Windows*, and opens the login page.
+3. **Sign in** with `admin` / `superbistro` (shown on the login page on first start only), then choose your
+   own password. The first-start password stops working once you've changed it.
+4. **Settings**: address, GSTIN and bill footer; add staff logins (Manager / Staff).
 5. **System → Google Drive**: connect Drive (below) so backups leave the building.
 
 Close Super Bistro with the console window's **X** (or shut Windows down normally). If the PC loses
@@ -122,7 +118,9 @@ cp .env.example .env      # set DB_PASSWORD (and GOOGLE_CLIENT_ID / SECRET if yo
 docker compose up -d --build
 ```
 
-**Plain Java 17+:** `java -jar superbistro.jar` — with no database configured it opens the same setup page.
+**Plain Java 17+:** `java -jar superbistro.jar` — with no database configured, the Windows/Mac build sets
+itself up as above. To use your own PostgreSQL server or another restaurant name instead, start it once with
+`SETUP=true` (or `-Dsuperbistro.setup=true`): that opens the setup page.
 Or set `DB_URL`, `DB_USER`, `DB_PASSWORD` to skip setup. On Windows: `start.bat`.
 
 **Free hosting** (demo only): Render (app, `render.yaml`) + Neon (PostgreSQL). Render's free plan sleeps
