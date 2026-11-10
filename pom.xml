@@ -76,7 +76,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
+            <!-- compile scope: backups use the driver's COPY API -->
         </dependency>
 
         <!-- Built-in PostgreSQL for the one-click desktop install (EMBEDDED_DB=true).
@@ -171,7 +171,19 @@
     </build>
 
     <profiles>
-        <!-- Built-in PostgreSQL for local development on a Mac (EMBEDDED_DB=true). Installs use a real PostgreSQL 15. -->
+        <!-- Built-in PostgreSQL for the Windows installer: setup offers "Built-in database", so the
+             client PC needs nothing else installed. (Built on Windows / the GitHub Windows workflow.) -->
+        <profile>
+            <id>windows</id>
+            <activation><os><family>windows</family></os></activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.zonky.test.postgres</groupId>
+                    <artifactId>embedded-postgres-binaries-windows-amd64</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+        <!-- Built-in PostgreSQL on a Mac (development, and EMBEDDED_DB=true). -->
         <profile>
             <id>mac</id>
             <activation><os><family>mac</family></os></activation>

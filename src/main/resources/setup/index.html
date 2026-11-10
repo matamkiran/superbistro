@@ -8,6 +8,7 @@
   :root { --bg:#f2f5f1; --surface:#fff; --sunk:#e7ede6; --fg:#17221b; --muted:#5a695f; --line:#d3ddd4; --accent:#1d6a44; --accent-fg:#fff; --accent-soft:#dbeee2; --bad:#b3313b; color-scheme: light; }
   @media (prefers-color-scheme: dark) { :root { --bg:#0e1410; --surface:#172019; --sunk:#111913; --fg:#e5ece6; --muted:#98a99d; --line:#29352c; --accent:#4cbc80; --accent-fg:#07130c; --accent-soft:#1b3325; --bad:#f0636f; color-scheme: dark; } }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 16px; }
   .brand { display: flex; align-items: center; gap: 10px; font: 700 24px "Segoe UI", system-ui, sans-serif; }
@@ -30,33 +31,50 @@
   .err { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); border-radius: 8px; padding: 10px 12px; font-weight: 500; }
   .ok { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 10px 12px; font-weight: 600; }
   code { background: var(--sunk); padding: 1px 5px; border-radius: 4px; font-size: 12px; overflow-wrap: anywhere; }
+  .modes { display: grid; gap: 8px; }
+  .mode { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--fg); }
+  .mode:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .mode input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); }
+  .mode small { display: block; color: var(--muted); font-weight: 400; }
+  .tag { font-style: normal; font-size: 11px; font-weight: 700; color: var(--accent); margin-left: 4px; }
+  .pg { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; min-width: 0; }
+  .pg[hidden] { display: none; }
   @media (max-width: 520px) { .row, .row2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
   <div class="brand"><span class="mark"></span>Super Bistro setup</div>
-  <p class="muted">This runs once. Super Bistro will create its own database inside your PostgreSQL and then open the order desk.</p>
+  <p class="muted">This runs once. Choose where the data is kept, create your login, and the order desk opens.</p>
 
   <form id="f" autocomplete="off">
     <div class="card">
-      <div class="step">Step 1 · PostgreSQL</div>
-      <p class="muted">Install <b>PostgreSQL 15</b> first if you haven't. Use the <b>postgres</b> user and the password you chose while installing it. Super Bistro only uses it to create its own login and database.</p>
-      <div class="row">
-        <label>Server<input type="text" name="host" value="localhost" required></label>
-        <label>Port<input type="number" name="port" value="5432" required></label>
+      <div class="step">Step 1 · Database</div>
+      <div class="modes">
+        <label class="mode" id="modeBuiltin"><input type="radio" name="mode" value="builtin">
+          <span><b>Built-in database</b> <em class="tag">Recommended</em>
+          <small>Nothing else to install. Super Bistro keeps its own database on this computer.</small></span></label>
+        <label class="mode"><input type="radio" name="mode" value="server">
+          <span><b>My own PostgreSQL server</b>
+          <small>PostgreSQL 15 is already installed here or on another server.</small></span></label>
       </div>
-      <div class="row2">
-        <label>Admin user<input type="text" name="adminUser" value="postgres" required></label>
-        <label>Admin password<input type="password" name="adminPassword" required></label>
-      </div>
-      <details>
-        <summary class="muted">More options</summary>
-        <div style="display:grid;gap:10px;margin-top:10px">
-          <label>Database name<input type="text" name="dbName" value="superbistro" pattern="[a-z_][a-z0-9_]*"></label>
-          <label>pg_dump location (for backups) <input type="text" name="pgDump" id="pgDump" placeholder="Found automatically"></label>
+      <fieldset id="pg" class="pg" hidden disabled>
+        <p class="muted">Use the <b>postgres</b> user and the password you chose while installing PostgreSQL. Super Bistro only uses it to create its own login and database.</p>
+        <div class="row">
+          <label>Server<input type="text" name="host" value="localhost" required></label>
+          <label>Port<input type="number" name="port" value="5432" required></label>
         </div>
-      </details>
+        <div class="row2">
+          <label>Admin user<input type="text" name="adminUser" value="postgres" required></label>
+          <label>Admin password<input type="password" name="adminPassword" required></label>
+        </div>
+        <details>
+          <summary class="muted">More options</summary>
+          <div style="display:grid;gap:10px;margin-top:10px">
+            <label>Database name<input type="text" name="dbName" value="superbistro" pattern="[a-z_][a-z0-9_]*"></label>
+          </div>
+        </details>
+      </fieldset>
     </div>
 
     <div class="card" style="margin-top:16px">
@@ -85,9 +103,19 @@
 </main>
 <script>
   const $ = (s) => document.querySelector(s);
+  const setMode = (mode) => {
+    const r = document.querySelector(`input[name=mode][value=${mode}]`);
+    if (r) r.checked = true;
+    const server = mode === "server";
+    $("#pg").hidden = !server;
+    $("#pg").disabled = !server;
+  };
+  document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", () => setMode(r.value)));
+  setMode("builtin");
   fetch("/setup/status").then((r) => r.json()).then((s) => {
+    if (!s.builtin) { $("#modeBuiltin").hidden = true; setMode("server"); }
+    else if (s.postgresRunning) { $("#modeBuiltin").querySelector(".tag").textContent = "Simplest"; }
     if (s.windows) $("#autostartRow").hidden = false;
-    if (s.pgDump) $("#pgDump").placeholder = "Found: " + s.pgDump;
     $("#where").innerHTML = "Settings and backups will be kept in <code></code>";
     $("#where code").textContent = s.dataDir;
   }).catch(() => {});
@@ -103,7 +131,7 @@
       const res = await fetch("/setup/install", { method: "POST", body: new URLSearchParams(new FormData(e.target)) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Setup failed");
-      show("ok", "Database ready. Starting Super Bistro… this takes about 20 seconds.");
+      show("ok", "Saved. Starting Super Bistro… the first start takes up to a minute.");
       btn.textContent = "Starting…";
       for (let i = 0; i < 120; i++) {
         await new Promise((r) => setTimeout(r, 1000));

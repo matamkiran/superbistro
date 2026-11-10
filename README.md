@@ -24,7 +24,8 @@ see what sells best, and back everything up to Google Drive every night.
   expenses and money added, net for the day, and the **cash drawer check** (opening + cash sales + cash
   added − cash paid out = should be in drawer; enter the counted cash to see short/extra). Last 14 days table.
 - **Settings** (owner) — restaurant name, GST %, bill details, staff logins (Owner / Manager / Staff).
-- **System** (main admin) — nightly backups, Google Drive, backup history, download a backup.
+- **System** (main admin) — nightly backups, Google Drive, backup history, download a backup,
+  **restore** a backup (one click, or upload a backup file from Drive / another PC).
 
 Multi-restaurant (SaaS): every restaurant only sees its own data.
 
@@ -36,26 +37,32 @@ Multi-restaurant (SaaS): every restaurant only sees its own data.
 same Wi-Fi as the billing PC, or use the hosted (https) address from anywhere. Over plain `http://<PC-IP>`
 Android adds a shortcut rather than a full app; with https (hosted) it installs as a full app.
 
-**Stack:** Spring Boot 4.1 (Java 17+) · PostgreSQL 15 · Flyway · Spring Security + Spring Session ·
+**Stack:** Spring Boot 4.1 (Java 17+) · PostgreSQL (built in, or your own PostgreSQL 15) · Flyway · Spring Security + Spring Session ·
 React 19 (Vite). The React app is built into the Spring Boot jar.
 
 ---
 
 ## Install on a new computer (Windows)
 
-1. **Install PostgreSQL 15** from postgresql.org (EDB installer). Remember the password you give the
-   `postgres` user. Keep the default port 5432.
-2. **Install Super Bistro** — run `SuperBistro-1.0.0.exe` (Java is included; the PC's own Java version
-   doesn't matter, Java 8 is fine).
-3. **Open Super Bistro** from the Start menu. A setup page opens in the browser:
-   - PostgreSQL: server `localhost`, port `5432`, user `postgres`, the password from step 1.
+Nothing else needs to be installed: Java and a private PostgreSQL database are inside Super Bistro.
+
+1. **Install Super Bistro** — run `SuperBistro-1.0.0.exe`. If Windows says "Windows protected your PC",
+   click **More info → Run anyway** (the installer isn't code-signed).
+2. **Open Super Bistro** from the Start menu. A black console window opens (that's Super Bistro running,
+   keep it open) and a setup page opens in the browser:
+   - **Step 1 · Database:** keep **Built-in database** (recommended). Super Bistro keeps its data in
+     `C:\ProgramData\SuperBistro\pgdata`.
+     Choose *My own PostgreSQL server* only if PostgreSQL 15 is already installed and you want to use it
+     (server `localhost`, port `5432`, user `postgres`, the password chosen while installing PostgreSQL).
    - Your restaurant name, your name, email and password (you become the main admin).
    - Tick *Start Super Bistro automatically when Windows starts* for the billing PC.
-4. Press **Set up Super Bistro**. It creates its own `superbistro` database and login inside PostgreSQL,
-   saves the connection in `C:\ProgramData\SuperBistro\superbistro.properties`, and opens the order desk.
-5. **Menu → Import**: paste your menu from Excel (columns Name, Category, Price, Veg).
+3. Press **Set up Super Bistro**. The first start takes up to a minute, then the order desk opens.
+4. **Menu → Import**: paste your menu from Excel (columns Name, Category, Price, Veg).
    The Super Bistro menu is ready in [`menus/super-bistro-menu.csv`](menus/super-bistro-menu.csv).
-6. **System → Google Drive**: connect Drive (below) so backups leave the building.
+5. **System → Google Drive**: connect Drive (below) so backups leave the building.
+
+Close Super Bistro with the console window's **X** (or shut Windows down normally). If the PC loses
+power, Super Bistro tidies up the database on the next start.
 
 Kitchen tablets and phones on the same Wi-Fi open `http://<billing-PC-IP>:8080`.
 Windows asks once to allow Java through the firewall — click **Allow**.
@@ -71,11 +78,11 @@ On a Windows PC with JDK 21 (+ WiX 3.14 for the `.exe`): `packaging\windows\buil
 
 ## Backups to Google Drive
 
-Every day at the chosen time (default 23:30) Super Bistro runs PostgreSQL's `pg_dump` and saves a full
-backup in `C:\ProgramData\SuperBistro\backups` (last 14 kept) and uploads it to a **Super Bistro Backups**
-folder in Google Drive (last 30 kept). If the PC was off at that time, the backup runs as soon as
-Super Bistro starts again. **System → Back up now** makes one immediately. `pg_dump` comes with
-PostgreSQL 15 and is found automatically.
+Every day at the chosen time (default 23:30) Super Bistro saves a full backup (a `.zip` with all
+orders, menu, store, day book, staff and settings) in `C:\ProgramData\SuperBistro\backups` (last 14 kept)
+and uploads it to a **Super Bistro Backups** folder in Google Drive (last 30 kept). If the PC was off at
+that time, the backup runs as soon as Super Bistro starts again. **System → Back up now** makes one
+immediately. This works the same with the built-in database and with your own PostgreSQL.
 
 **Connect Google Drive (one time, ~10 minutes):**
 1. [Google Cloud Console](https://console.cloud.google.com) → create a project → enable **Google Drive API**.
@@ -88,19 +95,27 @@ PostgreSQL 15 and is found automatically.
 
 Super Bistro uses the `drive.file` permission: it can only see files it uploaded, not the rest of the Drive.
 
-**Restore** (Super Bistro stopped), from PostgreSQL's `bin` folder:
+**Restore:** **System → Restore a backup** — press **Restore** next to a backup in the list, or
+**Choose backup file…** for a `.zip` downloaded from Google Drive or copied from another PC. It replaces
+all current data with the backup (a safety backup of the current data is made first) and everyone logs
+in again. The backup must come from the same Super Bistro version; to restore an older backup, install
+that version, restore, then update.
+
+**New computer:** install Super Bistro, finish setup, then **System → Restore a backup** with the latest
+backup file from Google Drive.
+
+Older `.dump` backups (made with pg_dump by the first version) restore with PostgreSQL's own tool,
+with Super Bistro stopped:
 
 ```bat
 pg_restore --clean --if-exists --no-owner -h localhost -U postgres -d superbistro superbistro_2026-11-10_2330.dump
 ```
 
-New computer: install PostgreSQL 15 + Super Bistro, finish setup, stop it, restore as above, start it.
-
 ---
 
 ## Other ways to run it
 
-**Docker** (servers, cloud VMs — includes PostgreSQL 15 and pg_dump):
+**Docker** (servers, cloud VMs — includes PostgreSQL 15):
 
 ```bash
 cp .env.example .env      # set DB_PASSWORD (and GOOGLE_CLIENT_ID / SECRET if you like)
@@ -124,13 +139,12 @@ Environment variables (or lines in `superbistro.properties`, written by setup):
 |---|---|---|
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | from setup | PostgreSQL connection |
 | `DATA_DIR` | `C:\ProgramData\SuperBistro` (Windows), `~/SuperBistro` | settings, backups |
-| `PG_DUMP` | found automatically | path to `pg_dump` for backups |
 | `PORT` | `8080` | web port |
 | `TIME_ZONE` | `Asia/Kolkata` | order numbers restart at #1 each day; backup time |
 | `ALLOW_SIGNUP` | from setup | `true` lets other restaurants sign up (SaaS) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | alternative to entering them on the System page |
 | `OPEN_BROWSER` | `false` | open the browser on start (the installer sets it) |
-| `EMBEDDED_DB` | `false` | developer mode: built-in PostgreSQL (Mac only) |
+| `EMBEDDED_DB` | from setup | `true`: built-in PostgreSQL (data in `DATA_DIR/pgdata`, port 54329, Windows and Mac builds) |
 
 ## Development
 
@@ -142,7 +156,7 @@ cd frontend && ./node/npm run dev            # React hot reload on :5173
 ```
 
 Code: `src/main/java/com/superbistro/` — `setup` (first-run page, launcher), `auth`, `tenant`, `menu`,
-`order`, `stats`, `backup` (pg_dump, Google Drive, System API), `config`. Schema: `src/main/resources/db/migration`.
+`order`, `stats`, `backup` (zip backup/restore, Google Drive, System API), `config` (incl. the built-in database). Schema: `src/main/resources/db/migration`.
 UI: `frontend/src/views/`. Section pictures: `frontend/public/icons/` (file name = section name, e.g. `sides-curry.jpg`).
 
 ## Not built yet

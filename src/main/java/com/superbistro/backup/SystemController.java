@@ -68,7 +68,6 @@ public class SystemController {
     @GetMapping
     public Map<String, Object> overview(HttpServletRequest req) {
         Map<String, String> s = settings.all();
-        Path pgDump = backups.pgDump();
         Map<String, Object> backup = new LinkedHashMap<>();
         backup.put("enabled", "true".equals(s.getOrDefault(SystemSettings.BACKUP_ENABLED, "true")));
         backup.put("time", s.getOrDefault(SystemSettings.BACKUP_TIME, "23:30"));
@@ -76,7 +75,6 @@ public class SystemController {
         backup.put("keepDrive", BackupService.intSetting(s, SystemSettings.KEEP_DRIVE, 30));
         backup.put("nextRun", backups.nextRun(s));
         backup.put("running", backups.isRunning());
-        backup.put("pgDump", pgDump == null ? null : pgDump.toString());
         backup.put("folder", backups.backupDir().toString());
         backup.put("embeddedDb", props.embeddedDb());
 
@@ -119,13 +117,64 @@ public class SystemController {
     /** Download a backup file kept on this computer. */
     @GetMapping("/backup/file/{name}")
     public ResponseEntity<FileSystemResource> download(@PathVariable String name) {
-        if (!name.matches("superbistro_[0-9_-]+\\.dump")) throw ApiException.notFound("Backup");
+        if (!BackupService.isBackupName(name)) throw ApiException.notFound("Backup");
         Path f = backups.backupDir().resolve(name);
         if (!Files.isRegularFile(f)) throw ApiException.notFound("Backup");
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"")
             .contentType(MediaType.APPLICATION_OCTET_STREAM)
             .body(new FileSystemResource(f));
+    }
+
+    /**
+     * Replaces ALL data with an uploaded backup .zip (from Google Drive, a USB stick or another PC).
+     * The file is sent as the raw request body. Everyone is logged out afterwards.
+     */
+    @PostMapping(value = "/restore", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public Map<String, Object> restoreUpload(HttpServletRequest req) throws IOException {
+        Files.createDirectories(backups.backupDir());
+        Path tmp = Files.createTempFile(backups.backupDir(), "restore-", ".upload");
+        try {
+            try (var in = req.getInputStream()) {
+                Files.copy(in, tmp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            return restore(tmp, req);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
+    /** Replaces ALL data with one of the backups kept on this computer. */
+    @PostMapping("/restore/local/{name}")
+    public Map<String, Object> restoreLocal(@PathVariable String name, HttpServletRequest req) {
+        if (!BackupService.isBackupName(name) || !name.endsWith(".zip")) {
+            throw ApiException.badRequest("Only .zip backups can be restored here");
+        }
+        Path f = backups.backupDir().resolve(name);
+        if (!Files.isRegularFile(f)) throw ApiException.notFound("Backup");
+        return restore(f, req);
+    }
+
+    private Map<String, Object> restore(Path file, HttpServletRequest req) {
+        DatabaseBackup.Restored r;
+        try {
+            r = backups.restore(file);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest(e.getMessage());
+        } catch (IllegalStateException e) {
+            throw new ApiException(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IOException | java.sql.SQLException e) {
+            throw ApiException.badRequest("Restore failed, nothing was changed: " + e.getMessage());
+        }
+        HttpSession session = req.getSession(false);
+        if (session != null) session.invalidate();
+        long total = r.rows().values().stream().mapToLong(Long::longValue).sum();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("ok", true);
+        out.put("backupCreatedAt", r.createdAt());
+        out.put("rows", total);
+        out.put("tables", r.rows());
+        return out;
     }
 
     @PutMapping("/google/client")

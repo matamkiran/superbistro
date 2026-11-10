@@ -19,7 +19,8 @@ export class ApiError extends Error {
 
 export async function api(method, path, body) {
   const headers = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const raw = body instanceof Blob; // a file: sent as it is (e.g. a backup to restore)
+  if (body !== undefined) headers["Content-Type"] = raw ? "application/octet-stream" : "application/json";
   if (method !== "GET") {
     let token = csrfToken();
     if (!token) {
@@ -36,7 +37,7 @@ export async function api(method, path, body) {
       method,
       headers,
       credentials: "same-origin",
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, "Can't reach the server. Check the connection.");

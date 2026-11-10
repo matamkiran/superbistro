@@ -1,9 +1,10 @@
 package com.superbistro.backup;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,59 +16,49 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
+
+import javax.sql.DataSource;
 
 import com.superbistro.config.AppProperties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Full database backups with pg_dump (custom format, restore with pg_restore), kept in
- * DATA_DIR/backups and uploaded to Google Drive when connected. Runs daily at the chosen time;
- * if the computer was off at that time, it runs as soon as Super Bistro is running again.
+ * Full database backups (a .zip, see {@link DatabaseBackup}; restore on the System page), kept in
+ * DATA_DIR/backups and uploaded to Google Drive when connected. Works with the built-in database
+ * and with a separate PostgreSQL; no pg_dump needed. Runs daily at the chosen time; if the
+ * computer was off at that time, it runs as soon as Super Bistro is running again.
  */
 @Service
 public class BackupService {
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
-    private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmm");
+    private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss");
 
     public record Run(String id, long startedAt, Long finishedAt, String trigger, String status, String fileName,
                       Long sizeBytes, boolean onDrive, String message) {
     }
 
     private final JdbcTemplate jdbc;
+    private final DataSource dataSource;
     private final SystemSettings settings;
     private final AppProperties props;
-    private final String dbUrl;
-    private final String dbUser;
-    private final String dbPassword;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public BackupService(JdbcTemplate jdbc, SystemSettings settings, AppProperties props,
-                         @Value("${spring.datasource.url:}") String dbUrl,
-                         @Value("${spring.datasource.username:}") String dbUser,
-                         @Value("${spring.datasource.password:}") String dbPassword) {
+    public BackupService(JdbcTemplate jdbc, DataSource dataSource, SystemSettings settings, AppProperties props) {
         this.jdbc = jdbc;
+        this.dataSource = dataSource;
         this.settings = settings;
         this.props = props;
-        this.dbUrl = dbUrl;
-        this.dbUser = dbUser;
-        this.dbPassword = dbPassword;
     }
 
     public Path backupDir() {
         return Path.of(props.dataDir()).resolve("backups");
-    }
-
-    public Path pgDump() {
-        return PgTools.findPgDump(props.pgDump());
     }
 
     public boolean isRunning() {
@@ -77,7 +68,6 @@ public class BackupService {
     /** Checked every minute: runs the daily backup once the chosen time has passed today. */
     @Scheduled(initialDelay = 60_000, fixedDelay = 60_000)
     public void scheduledCheck() {
-        if (props.embeddedDb()) return; // built-in database: no pg_dump available
         Map<String, String> s = settings.all();
         if (!"true".equals(s.getOrDefault(SystemSettings.BACKUP_ENABLED, "true"))) return;
         LocalTime at = LocalTime.parse(s.getOrDefault(SystemSettings.BACKUP_TIME, "23:30"));
@@ -138,38 +128,43 @@ public class BackupService {
         return history(1).get(0);
     }
 
-    private Path dump(Instant started) throws IOException, InterruptedException {
-        Path pgDump = pgDump();
-        if (pgDump == null) {
-            throw new IOException("pg_dump was not found. It comes with PostgreSQL 15 (C:\\Program Files\\PostgreSQL\\15\\bin). "
-                + "Set PG_DUMP in superbistro.properties if it is somewhere else.");
-        }
-        PgTools.Target t = PgTools.parse(dbUrl);
+    private Path dump(Instant started) throws IOException, SQLException {
         Files.createDirectories(backupDir());
-        String name = "superbistro_" + LocalDateTime.ofInstant(started, props.zone()).format(FILE_TS) + ".dump";
+        String stamp = "superbistro_" + LocalDateTime.ofInstant(started, props.zone()).format(FILE_TS);
+        String name = stamp + ".zip";
+        for (int i = 2; Files.exists(backupDir().resolve(name)); i++) {
+            name = stamp + "-" + i + ".zip"; // never overwrite an earlier backup
+        }
         Path out = backupDir().resolve(name);
         Path part = backupDir().resolve(name + ".part");
-        ProcessBuilder pb = new ProcessBuilder(pgDump.toString(), "--format=custom", "--no-owner", "--no-privileges",
-            "--host=" + t.host(), "--port=" + t.port(), "--username=" + dbUser, "--file=" + part, t.database());
-        pb.environment().put("PGPASSWORD", dbPassword);
-        if (t.sslmode() != null) pb.environment().put("PGSSLMODE", t.sslmode());
-        pb.redirectErrorStream(true);
-        Process p = pb.start();
-        byte[] output = p.getInputStream().readAllBytes();
-        if (!p.waitFor(30, TimeUnit.MINUTES)) {
-            p.destroyForcibly();
-            throw new IOException("pg_dump took longer than 30 minutes and was stopped");
-        }
-        if (p.exitValue() != 0) {
+        try {
+            DatabaseBackup.write(dataSource, part);
+            Files.move(part, out, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
             Files.deleteIfExists(part);
-            String text = new String(output, StandardCharsets.UTF_8).trim();
-            if (text.contains("server version mismatch")) {
-                text = "This pg_dump is older than the database server. Install the matching PostgreSQL version's tools. " + text;
-            }
-            throw new IOException("pg_dump failed: " + text);
         }
-        Files.move(part, out, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         return out;
+    }
+
+    /**
+     * Replaces all data with a backup file (from this computer, Google Drive or another PC).
+     * A safety backup of the current data is made first.
+     */
+    public DatabaseBackup.Restored restore(Path file) throws IOException, SQLException {
+        Run safety = runBackup("BEFORE_RESTORE");
+        if ("FAILED".equals(safety.status())) {
+            throw new IOException("Could not make a safety backup of the current data first: " + safety.message());
+        }
+        if (!running.compareAndSet(false, true)) {
+            throw new IllegalStateException("A backup is running; try again in a minute");
+        }
+        try {
+            DatabaseBackup.Restored r = DatabaseBackup.restore(dataSource, file);
+            log.info("Restored backup from {} ({} tables)", r.createdAt(), r.rows().size());
+            return r;
+        } finally {
+            running.set(false);
+        }
     }
 
     private String uploadToDrive(Path file, Map<String, String> s) throws IOException {
@@ -190,7 +185,7 @@ public class BackupService {
     private void pruneLocal() throws IOException {
         int keep = intSetting(settings.all(), SystemSettings.KEEP_LOCAL, 14);
         try (Stream<Path> s = Files.list(backupDir())) {
-            List<Path> dumps = new ArrayList<>(s.filter(p -> p.getFileName().toString().endsWith(".dump")).toList());
+            List<Path> dumps = new ArrayList<>(s.filter(p -> isBackupName(p.getFileName().toString())).toList());
             dumps.sort(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed());
             for (int i = keep; i < dumps.size(); i++) {
                 Files.deleteIfExists(dumps.get(i));
@@ -221,6 +216,11 @@ public class BackupService {
         LocalDate day = LocalDate.now(props.zone());
         boolean doneToday = day.toString().equals(s.get(SystemSettings.LAST_SCHEDULED_DAY));
         return LocalDateTime.of(doneToday ? day.plusDays(1) : day, at).toString();
+    }
+
+    /** Backup files in the backups folder: .zip (current) and .dump (made with pg_dump by older versions). */
+    public static boolean isBackupName(String name) {
+        return name.matches("superbistro_[0-9_-]+\\.(zip|dump)");
     }
 
     static int intSetting(Map<String, String> s, String key, int fallback) {

@@ -6,8 +6,9 @@ rem
 rem  Needs: JDK 21 (for jpackage) and, for the .exe only, WiX Toolset 3.14
 rem         (choco install wixtoolset --version=3.14.1). The portable zip needs no WiX.
 rem
-rem  On the client PC: install PostgreSQL 15 first, then this installer. Java is inside.
-rem  The first start opens a setup page that connects to PostgreSQL and creates the database.
+rem  On the client PC just run the installer: Java and a built-in PostgreSQL are inside
+rem  (the PostgreSQL program is added to the jar by the "windows" Maven profile when built on Windows).
+rem  The first start opens a setup page: "Built-in database" (recommended) or your own PostgreSQL 15.
 rem ---------------------------------------------------------------------------
 setlocal
 cd /d "%~dp0\..\.."

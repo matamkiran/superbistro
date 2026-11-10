@@ -30,7 +30,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  * installer), creates a dedicated "superbistro" login and database, saves the connection to
  * DATA_DIR/superbistro.properties, and then starts the real app on the same port.
  */
-final class SetupServer {
+public final class SetupServer {
     private static final Pattern SAFE_NAME = Pattern.compile("[a-z_][a-z0-9_]{0,40}");
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
@@ -70,7 +70,8 @@ final class SetupServer {
             } else if ("GET".equals(method) && path.equals("/setup/status")) {
                 Path pgDump = PgTools.findPgDump(null);
                 json(ex, 200, Map.of("setup", true, "dataDir", dataDir.toString(),
-                    "pgDump", pgDump == null ? "" : pgDump.toString(), "windows", isWindows()));
+                    "pgDump", pgDump == null ? "" : pgDump.toString(), "windows", isWindows(),
+                    "builtin", builtinAvailable(), "postgresRunning", portOpen("localhost", 5432)));
             } else if ("POST".equals(method) && path.equals("/setup/install")) {
                 install(ex, form(ex));
             } else if (path.startsWith("/api/") || path.startsWith("/actuator")) {
@@ -86,21 +87,20 @@ final class SetupServer {
     }
 
     private void install(HttpExchange ex, Map<String, String> f) throws IOException {
+        if ("builtin".equals(f.get("mode"))) {
+            installBuiltin(ex, f);
+            return;
+        }
         String host = f.getOrDefault("host", "localhost").trim();
         String portStr = f.getOrDefault("port", "5432").trim();
         String adminUser = f.getOrDefault("adminUser", "postgres").trim();
         String adminPassword = f.getOrDefault("adminPassword", "");
         String dbName = f.getOrDefault("dbName", "superbistro").trim().toLowerCase(Locale.ROOT);
-        String restaurant = f.getOrDefault("restaurantName", "").trim();
-        String owner = f.getOrDefault("ownerName", "").trim();
-        String email = f.getOrDefault("email", "").trim().toLowerCase(Locale.ROOT);
-        String password = f.getOrDefault("password", "");
 
         if (host.isEmpty() || !portStr.matches("\\d{2,5}")) { json(ex, 400, err("Enter the PostgreSQL server and port (usually localhost and 5432).")); return; }
         if (!SAFE_NAME.matcher(dbName).matches()) { json(ex, 400, err("The database name can use lowercase letters, digits and _ only.")); return; }
-        if (restaurant.isEmpty() || owner.isEmpty()) { json(ex, 400, err("Enter the restaurant name and your name.")); return; }
-        if (!EMAIL.matcher(email).matches()) { json(ex, 400, err("Enter a valid email for the owner login.")); return; }
-        if (password.length() < 8) { json(ex, 400, err("The owner password must be at least 8 characters.")); return; }
+        String problem = ownerProblem(f);
+        if (problem != null) { json(ex, 400, err(problem)); return; }
 
         String appPassword = randomPassword();
         String base = "jdbc:postgresql://" + host + ":" + portStr + "/";
@@ -152,12 +152,44 @@ final class SetupServer {
         if (pgDump != null) p.setProperty("PG_DUMP", pgDump.toString());
         Launcher.write(dataDir.resolve(Launcher.CONFIG_FILE), p, "Super Bistro settings, written by first-time setup. Keep this file private.");
 
+        finish(ex, f, pgDump == null ? "" : pgDump.toString());
+    }
+
+    /**
+     * Built-in database: Super Bistro runs its own private PostgreSQL (data in DATA_DIR/pgdata),
+     * so nothing else has to be installed on the PC.
+     */
+    private void installBuiltin(HttpExchange ex, Map<String, String> f) throws IOException {
+        if (!builtinAvailable()) {
+            json(ex, 400, err("This copy of Super Bistro has no built-in database for this computer. Choose \"My own PostgreSQL server\"."));
+            return;
+        }
+        String problem = ownerProblem(f);
+        if (problem != null) { json(ex, 400, err(problem)); return; }
+
+        Properties p = new Properties();
+        p.setProperty("EMBEDDED_DB", "true");
+        p.setProperty("ALLOW_SIGNUP", "on".equals(f.get("allowSignup")) ? "true" : "false");
+        Launcher.write(dataDir.resolve(Launcher.CONFIG_FILE), p, "Super Bistro settings, written by first-time setup. Keep this file private.");
+        finish(ex, f, "");
+    }
+
+    /** Checks the restaurant and owner fields; returns a message, or null when they're fine. */
+    private static String ownerProblem(Map<String, String> f) {
+        if (f.getOrDefault("restaurantName", "").isBlank() || f.getOrDefault("ownerName", "").isBlank()) return "Enter the restaurant name and your name.";
+        if (!EMAIL.matcher(f.getOrDefault("email", "").trim()).matches()) return "Enter a valid email for the owner login.";
+        if (f.getOrDefault("password", "").length() < 8) return "The owner password must be at least 8 characters.";
+        return null;
+    }
+
+    /** Saves the owner for the first start, turns on autostart, answers the page and starts the app. */
+    private void finish(HttpExchange ex, Map<String, String> f, String pgDump) throws IOException {
         if (isWindows() && "on".equals(f.get("autostart"))) {
             registerWindowsAutostart();
         }
-
-        BootstrapOwner.set(new BootstrapOwner(restaurant, owner, email, new BCryptPasswordEncoder().encode(password)));
-        json(ex, 200, Map.of("ok", true, "pgDump", pgDump == null ? "" : pgDump.toString()));
+        BootstrapOwner.set(new BootstrapOwner(f.get("restaurantName").trim(), f.get("ownerName").trim(),
+            f.get("email").trim().toLowerCase(Locale.ROOT), new BCryptPasswordEncoder().encode(f.get("password"))));
+        json(ex, 200, Map.of("ok", true, "pgDump", pgDump));
 
         // Hand the port over to the real app.
         Thread t = new Thread(() -> {
@@ -172,6 +204,24 @@ final class SetupServer {
         }, "superbistro-start");
         t.setDaemon(false);
         t.start();
+    }
+
+    /** True when the PostgreSQL program for this OS is packed inside the app. */
+    public static boolean builtinAvailable() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        String name = os.contains("win") ? "windows" : os.contains("mac") ? "darwin" : "linux";
+        String a = arch.equals("aarch64") || arch.equals("arm64") ? "arm_64" : "x86_64";
+        return SetupServer.class.getResource("/postgres-" + name + "-" + a + ".txz") != null;
+    }
+
+    private static boolean portOpen(String host, int port) {
+        try (java.net.Socket s = new java.net.Socket()) {
+            s.connect(new InetSocketAddress(host, port), 400);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** Starts Super Bistro when this Windows user signs in (no admin rights needed). */

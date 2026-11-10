@@ -3,6 +3,7 @@ import { api } from "../api.js";
 
 const size = (b) => (b == null ? "" : b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1024 / 1024).toFixed(1) + " MB");
 const when = (ms) => new Date(ms).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+const TRIGGER = { MANUAL: "manual", SCHEDULED: "daily", BEFORE_RESTORE: "before restore" };
 const STATUS = { OK: ["ok", "Backed up"], PARTIAL: ["warn", "Saved locally only"], FAILED: ["bad", "Failed"], RUNNING: ["", "Running…"] };
 
 export default function System({ toast }) {
@@ -11,6 +12,7 @@ export default function System({ toast }) {
   const [g, setG] = useState({ clientId: "", clientSecret: "" });
   const [busy, setBusy] = useState(false);
   const [running, setRunning] = useState(false);
+  const [restoring, setRestoring] = useState(false);
 
   const load = useCallback(async () => {
     const data = await api("GET", "system");
@@ -59,6 +61,20 @@ export default function System({ toast }) {
     }
   };
 
+  const restore = async (name, file) => {
+    if (!confirm(`Restore the backup "${name}"?\n\nThis REPLACES ALL current data (orders, menu, store, day book, staff, settings) with the data in the backup. Everyone has to log in again.`)) return;
+    setRestoring(true);
+    try {
+      const r = file ? await api("POST", "system/restore", file) : await api("POST", "system/restore/local/" + encodeURIComponent(name));
+      alert(`Restored ${r.rows} records from the backup of ${new Date(r.backupCreatedAt).toLocaleString("en-IN")}.\n\nPlease log in again.`);
+      location.href = "/";
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const copy = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -75,7 +91,7 @@ export default function System({ toast }) {
           <h1>System</h1>
           <p className="muted">Backups for the whole installation. Only you (the main admin) see this page.</p>
         </div>
-        <button className="btn primary" onClick={runNow} disabled={running || d.backup.embeddedDb}>{running ? "Backing up…" : "Back up now"}</button>
+        <button className="btn primary" onClick={runNow} disabled={running}>{running ? "Backing up…" : "Back up now"}</button>
       </div>
 
       <div className="kpis sys-kpis">
@@ -95,9 +111,9 @@ export default function System({ toast }) {
           <div className="s">{d.google.connected ? d.google.account : "backups stay on this computer"}</div>
         </div>
         <div className="panel kpi">
-          <div className="label">Backup tool</div>
-          <div className={"v sm " + (d.backup.pgDump ? "good" : "badc")}>{d.backup.pgDump ? "pg_dump found" : "Missing"}</div>
-          <div className="s mono-s">{d.backup.pgDump || "install PostgreSQL 15"}</div>
+          <div className="label">Database</div>
+          <div className="v sm">{d.backup.embeddedDb ? "Built-in" : "PostgreSQL server"}</div>
+          <div className="s">{d.backup.embeddedDb ? "kept on this computer" : "your own PostgreSQL"}</div>
         </div>
       </div>
 
@@ -166,23 +182,32 @@ export default function System({ toast }) {
                   const [cls, label] = STATUS[h.status] || ["", h.status];
                   return (
                     <tr key={h.id} title={h.message || ""}>
-                      <td className="mono">{when(h.startedAt)}<div className="muted-cell">{h.trigger === "MANUAL" ? "manual" : "daily"}</div></td>
+                      <td className="mono">{when(h.startedAt)}<div className="muted-cell">{TRIGGER[h.trigger] || "daily"}</div></td>
                       <td><span className={"pill " + cls}>{label}</span>{h.status !== "OK" && h.message && <div className="muted-cell clip">{h.message}</div>}</td>
                       <td className="mono r">{size(h.sizeBytes)}</td>
                       <td className="muted-cell">{h.fileName ? (h.onDrive ? "PC + Drive" : "PC") : ""}</td>
-                      <td>{h.fileName && <a className="btn sm" href={"/api/system/backup/file/" + h.fileName}>Download</a>}</td>
+                      <td className="row-actions">
+                        {h.fileName && <a className="btn sm" href={"/api/system/backup/file/" + h.fileName}>Download</a>}
+                        {h.fileName && h.fileName.endsWith(".zip") && <button className="btn sm" disabled={restoring} onClick={() => restore(h.fileName, null)}>Restore</button>}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           ) : <div className="empty">No backups yet. Press <b>Back up now</b> to make the first one.</div>}
-          <details className="restore">
-            <summary>How to restore a backup</summary>
-            <p>On the server, with Super Bistro stopped, run PostgreSQL's <code>pg_restore</code> (in the same folder as pg_dump):</p>
-            <pre>pg_restore --clean --if-exists --no-owner -h localhost -U postgres -d superbistro superbistro_YYYY-MM-DD_HHMM.dump</pre>
-            <p>Then start Super Bistro again. On a new computer: install PostgreSQL 15 and Super Bistro, finish setup, then restore the same way.</p>
-          </details>
+          <div className="restore">
+            <h2>Restore a backup</h2>
+            <p className="muted">Puts back all orders, menu, store, day book, staff and settings exactly as they were in the backup.
+              Use it on a new computer, or to undo a mistake. <b>Everything entered after that backup is replaced.</b> A safety backup of the current data is made first.</p>
+            <p className="muted">Pick a backup above (<b>Restore</b>), or a <code>.zip</code> backup file from Google Drive, a USB stick or another PC:</p>
+            <label className="btn">
+              {restoring ? "Restoring…" : "Choose backup file…"}
+              <input type="file" accept=".zip,application/zip" hidden disabled={restoring}
+                onChange={(e) => { const f = e.target.files[0]; e.target.value = ""; if (f) restore(f.name, f); }} />
+            </label>
+            <p className="muted">Old <code>.dump</code> backups (from before this version) restore with PostgreSQL's <code>pg_restore</code>, see the README.</p>
+          </div>
         </section>
       </div>
     </>
