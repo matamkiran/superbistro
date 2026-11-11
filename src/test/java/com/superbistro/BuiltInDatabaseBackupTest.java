@@ -71,7 +71,7 @@ class BuiltInDatabaseBackupTest {
 
     @Test
     void backupAndRestoreRoundTrip() throws Exception {
-        TestOwners.create(ctx, "Backup Test", "backup-owner@example.com", "secret123");
+        TestOwners.create(ctx, "Backup Test", "backup-owner@example.com", "secret123", true);
         MockHttpSession s = login("/api/auth/login", "{\"email\":\"backup-owner@example.com\",\"password\":\"secret123\"}");
         String dosa = JsonPath.read(body(post("/api/menu").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\":\"Masala Dosa\",\"price\":70,\"category\":\"Breakfast\",\"veg\":true}")), "$.id");
