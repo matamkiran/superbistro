@@ -36,6 +36,10 @@ see what sells best, and back everything up to Google Drive every night.
   expenses and money added, net for the day, and the **cash drawer check** (opening + cash sales + cash
   added − cash paid out = should be in drawer; enter the counted cash to see short/extra). Last 14 days table.
 - **Settings** (owner) — restaurant name, GST %, bill details, staff logins (Owner / Manager / Staff).
+- **Email reports** (System page) — every night a daily report (sales, payments, Zomato/Swiggy, top dishes,
+  cancelled bills, cash drawer, expenses, stock to buy) with the day's orders as a CSV, and on the 1st the
+  previous month. Sent from a Gmail account with an App password to any addresses you enter. Missed reports
+  (PC off) are sent when Super Bistro starts. *Send test email* / *Email today's report now* / preview links.
 - **System** (main admin) — nightly backups, Google Drive, backup history, download a backup,
   **restore** a backup (one click, or upload a backup file from Drive / another PC).
 

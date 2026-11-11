@@ -116,6 +116,9 @@ class RunningBillAndCustomersTest {
         mvc.perform(get("/api/customers").session(owner))
             .andExpect(jsonPath("$", hasSize(1)))
             .andExpect(jsonPath("$[0].key", is("9876543210")));
+        // Report emails: settings are main-admin only; the daily report shows sales and the cancelled bill.
+        mvc.perform(get("/api/system/report").session(owner)).andExpect(status().isForbidden());
+
         mvc.perform(get("/api/customers/9876543210/orders").session(owner))
             .andExpect(jsonPath("$", hasSize(2)))
             .andExpect(jsonPath("$[1].items", is("2× Masala Dosa, 2× Filter Coffee")));

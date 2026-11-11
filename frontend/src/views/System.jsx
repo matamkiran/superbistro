@@ -170,6 +170,8 @@ export default function System({ toast }) {
               </>
             )}
           </section>
+
+          <ReportEmail toast={toast} />
         </div>
 
         <section className="panel mtable-wrap">
@@ -211,5 +213,89 @@ export default function System({ toast }) {
         </section>
       </div>
     </>
+  );
+}
+
+/** Daily and monthly report emails: who gets them, when, and the account they are sent from. */
+function ReportEmail({ toast }) {
+  const [r, setR] = useState(null);
+  const [f, setF] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api("GET", "system/report").then((x) => { setR(x); setF({ ...x, password: "" }); }).catch((e) => toast(e.message, true));
+  }, [toast]);
+
+  if (!r || !f) return null;
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
+
+  const save = async (e) => {
+    e?.preventDefault();
+    setBusy(true);
+    try {
+      const x = await api("PUT", "system/report", { to: f.to, enabled: f.enabled, time: f.time, host: f.host, port: String(f.port), user: f.user, password: f.password });
+      setR(x);
+      setF({ ...x, password: "" });
+      toast("Email settings saved");
+      return x;
+    } catch (ex) {
+      toast(ex.message, true);
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const send = async (kind) => {
+    const saved = await save();
+    if (!saved) return;
+    setBusy(true);
+    try {
+      const res = await api("POST", "system/report/send?kind=" + kind);
+      toast(kind === "test" ? "Test email sent. Check the inbox (and Spam)." : "Today's report sent");
+      setR({ ...saved, lastResult: res.result });
+    } catch (ex) {
+      toast(ex.message, true);
+      setR(await api("GET", "system/report"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const failed = r.lastResult.startsWith("FAILED");
+  return (
+    <form className="panel form" onSubmit={save}>
+      <h2>Email reports</h2>
+      <p className="muted">Every night: sales, payments, Zomato/Swiggy, top dishes, cancelled bills, cash drawer, expenses, stock to buy, with the day's orders attached (opens in Excel). On the 1st: last month's report. If the PC was off, the missed report is sent when Super Bistro starts.</p>
+      <div className="field"><label htmlFor="r-to">Send reports to</label>
+        <input className="input" id="r-to" value={f.to} onChange={set("to")} placeholder="owner@gmail.com (several: separate with commas)" /></div>
+      <div className="two">
+        <label className="check"><input type="checkbox" checked={f.enabled} onChange={set("enabled")} /> Send every day</label>
+        <div className="field"><label htmlFor="r-time">at</label>
+          <input className="input mono" id="r-time" type="time" value={f.time} onChange={set("time")} /></div>
+      </div>
+      <details open={!r.configured}>
+        <summary>Sending account {r.configured ? "(set)" : "(needed once)"}</summary>
+        <p className="muted">Use a Gmail account with an <b>App password</b>: Google Account → Security → turn on 2-Step Verification → <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">App passwords</a> → create one named "Super Bistro" and paste the 16 letters here. It can be the same Gmail that receives the reports.</p>
+        <div className="field"><label htmlFor="r-user">Gmail address (sends the reports)</label>
+          <input className="input" id="r-user" value={f.user} onChange={set("user")} placeholder="yourname@gmail.com" autoComplete="off" /></div>
+        <div className="field"><label htmlFor="r-pass">App password</label>
+          <input className="input mono" id="r-pass" type="password" value={f.password} onChange={set("password")} autoComplete="new-password"
+            placeholder={r.hasPassword ? "Saved (enter to replace)" : "abcd efgh ijkl mnop"} /></div>
+        <div className="two">
+          <div className="field"><label htmlFor="r-host">Mail server</label>
+            <input className="input mono" id="r-host" value={f.host} onChange={set("host")} /></div>
+          <div className="field"><label htmlFor="r-port">Port</label>
+            <input className="input mono" id="r-port" value={f.port} onChange={set("port")} inputMode="numeric" /></div>
+        </div>
+      </details>
+      {r.lastResult && <p className={failed ? "form-err" : "muted"}>{failed ? "Last email failed: " : "Last email: "}{r.lastResult.replace(/^(OK|FAILED) /, "")}</p>}
+      <div className="two">
+        <button className="btn" disabled={busy}>Save</button>
+        <button type="button" className="btn" disabled={busy || !f.to} onClick={() => send("test")}>Send test email</button>
+      </div>
+      <button type="button" className="btn primary" disabled={busy || !f.to} onClick={() => send("today")}>Email today's report now</button>
+      <p className="muted"><a href="/api/system/report/preview" target="_blank" rel="noreferrer">See today's report</a> · <a href={"/api/system/report/preview?month=" + new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7)} target="_blank" rel="noreferrer">last month's</a></p>
+    </form>
   );
 }
