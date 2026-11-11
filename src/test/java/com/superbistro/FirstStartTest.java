@@ -51,7 +51,7 @@ class FirstStartTest {
 
         MockHttpSession s = new MockHttpSession();
         var res = mvc.perform(post("/api/auth/login").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"superbistro\"}"))
+                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"" + Launcher.DEFAULT_PASSWORD + "\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.user.mustChangePassword", is(true))).andReturn();
         s = (MockHttpSession) res.getRequest().getSession(false);
 
@@ -60,7 +60,7 @@ class FirstStartTest {
                 .content("{\"current\":\"wrong\",\"password\":\"my-own-pass-1\"}"))
             .andExpect(status().isBadRequest());
         res = mvc.perform(post("/api/auth/password").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"current\":\"superbistro\",\"password\":\"my-own-pass-1\"}"))
+                .content("{\"current\":\"" + Launcher.DEFAULT_PASSWORD + "\",\"password\":\"my-own-pass-1\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.user.mustChangePassword", is(false))).andReturn();
         s = (MockHttpSession) res.getRequest().getSession(false);
 
@@ -68,7 +68,7 @@ class FirstStartTest {
         mvc.perform(get("/api/auth/config")).andExpect(jsonPath("$.firstStart", is(false)))
             .andExpect(jsonPath("$.defaultPassword", is("")));
         mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"superbistro\"}"))
+                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"" + Launcher.DEFAULT_PASSWORD + "\"}"))
             .andExpect(status().isUnauthorized());
     }
 }

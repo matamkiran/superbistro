@@ -110,7 +110,7 @@ public final class Launcher {
         }
         return "admin";
     }
-    public static final String DEFAULT_PASSWORD = "superbistro";
+    public static final String DEFAULT_PASSWORD = "password";
 
     private static void autoSetup(Path dataDir) throws IOException {
         Properties p = new Properties();
