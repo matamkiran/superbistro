@@ -74,7 +74,7 @@ export default function Login({ onSignedIn }) {
           </div>
           {mode === "login" && first && (
             <div className="first-start">
-              <p><b>First start.</b> Sign in with <code>{first.login}</code> and password <code>{first.password}</code>.
+              <p>Sign in with <code>{first.login}</code> and password <code>{first.password}</code>.
                 You'll choose your own password next.</p>
               <button type="button" className="btn sm" onClick={() => setF({ ...f, email: first.login, password: first.password })}>Fill in</button>
             </div>

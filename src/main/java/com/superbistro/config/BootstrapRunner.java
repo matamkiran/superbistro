@@ -35,18 +35,47 @@ public class BootstrapRunner implements ApplicationRunner {
     private final RestaurantRepository restaurants;
     private final MenuItemRepository menu;
     private final boolean readyMade;
+    private final boolean resetAdmin;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public BootstrapRunner(AppUserRepository users, RestaurantRepository restaurants, MenuItemRepository menu,
-                           @Value("${READY_MADE:false}") boolean readyMade) {
+                           org.springframework.jdbc.core.JdbcTemplate jdbc,
+                           @Value("${READY_MADE:false}") boolean readyMade,
+                           @Value("${superbistro.reset-admin:false}") boolean resetAdmin) {
         this.users = users;
         this.restaurants = restaurants;
         this.menu = menu;
+        this.jdbc = jdbc;
         this.readyMade = readyMade;
+        this.resetAdmin = resetAdmin;
+    }
+
+    /** Puts the main admin's password back to the ready-made one; they must choose a new one at sign-in. */
+    private void resetAdminPassword() {
+        AppUser admin = users.findAll().stream().filter(AppUser::isPlatformAdmin)
+            .min(java.util.Comparator.comparing(AppUser::getCreatedAt)).orElse(null);
+        if (admin == null) {
+            log.warn("Password reset: no main admin found");
+            return;
+        }
+        admin.setPasswordHash(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
+            .encode(com.superbistro.setup.Launcher.DEFAULT_PASSWORD));
+        admin.setMustChangePassword(true);
+        users.save(admin);
+        jdbc.update("DELETE FROM spring_session"); // everyone signs in again
+        System.out.println();
+        System.out.println("  Password reset. Sign in with  " + admin.getEmail() + " / "
+            + com.superbistro.setup.Launcher.DEFAULT_PASSWORD + "  and choose a new password. All data is kept.");
+        System.out.println();
+        log.info("Password reset for main admin {}", admin.getEmail());
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        if (resetAdmin) {
+            resetAdminPassword();
+        }
         BootstrapOwner b = BootstrapOwner.take();
         if (b == null && readyMade && users.count() == 0) {
             // Super Bistro build with no login yet (first start, or a first start that was interrupted).

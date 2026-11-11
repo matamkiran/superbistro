@@ -50,8 +50,8 @@ jobs:
         with:
           name: SuperBistro-windows
           path: |
-            dist/*.exe
-            dist/*.zip
+            dist/SuperBistro-Setup.exe
+            dist/SuperBistro-portable.zip
 
       - name: Put the files on the GitHub Release
         if: ${{ inputs.release_tag != '' || startsWith(github.ref, 'refs/tags/v') }}
@@ -62,4 +62,4 @@ jobs:
         run: |
           gh release view $env:TAG *> $null
           if ($LASTEXITCODE -ne 0) { gh release create $env:TAG --title "Super Bistro $env:TAG" --notes "Windows installer" }
-          gh release upload $env:TAG (Get-ChildItem dist\*.exe, dist\*.zip).FullName --clobber
+          gh release upload $env:TAG dist\SuperBistro-Setup.exe dist\SuperBistro-portable.zip --clobber

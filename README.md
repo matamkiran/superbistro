@@ -57,6 +57,15 @@ Nothing else needs to be installed: Java and a private PostgreSQL database are i
 4. **Settings**: address, GSTIN and bill footer; add staff logins (Manager / Staff).
 5. **System → Google Drive**: connect Drive (below) so backups leave the building.
 
+**Forgot the admin password?** On the billing PC: close the black Super Bistro window, then open
+**Start → Super Bistro → Reset-Super-Bistro-Password**. Super Bistro starts with the admin password back to
+`superbistro` (you choose a new one at sign-in). All orders, menu and stock are kept. It only works on that
+PC itself, not from phones or other computers. Without the Start-menu item: run `SuperBistro.exe --reset-admin`.
+
+**Download:** always the newest version at
+https://github.com/matamkiran/superbistro/releases/latest/download/SuperBistro-Setup.exe
+(portable: `.../latest/download/SuperBistro-portable.zip`).
+
 Close Super Bistro with the console window's **X** (or shut Windows down normally). If the PC loses
 power, Super Bistro tidies up the database on the next start.
 

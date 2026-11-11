@@ -89,10 +89,12 @@ public class AuthController {
     @GetMapping("/config")
     public Map<String, Object> config() {
         // On a fresh install the login screen shows the ready-made login until its password is changed.
-        boolean firstStart = users.findByEmail(com.superbistro.setup.Launcher.DEFAULT_LOGIN)
-            .map(AppUser::isMustChangePassword).orElse(false);
+        // (also right after "Reset Super Bistro password" on the billing PC)
+        String login = users.findAll().stream().filter(u -> u.isPlatformAdmin() && u.isMustChangePassword())
+            .map(AppUser::getEmail).findFirst().orElse(null);
+        boolean firstStart = login != null;
         return Map.of("allowSignup", props.allowSignup(), "firstStart", firstStart,
-            "defaultLogin", firstStart ? com.superbistro.setup.Launcher.DEFAULT_LOGIN : "",
+            "defaultLogin", firstStart ? login : "",
             "defaultPassword", firstStart ? com.superbistro.setup.Launcher.DEFAULT_PASSWORD : "");
     }
 

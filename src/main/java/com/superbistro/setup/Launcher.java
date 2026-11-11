@@ -37,6 +37,26 @@ public final class Launcher {
         Path dataDir = dataDir();
         int port = port();
         boolean desktop = flag("OPEN_BROWSER", "superbistro.open-browser");
+        Path config = dataDir.resolve(CONFIG_FILE);
+        boolean configured = env("DB_URL", "spring.datasource.url") != null
+            || flag("EMBEDDED_DB", "superbistro.embedded-db")
+            || Files.exists(config);
+
+        // "Reset Super Bistro password" (Start menu) / --reset-admin: run on the billing PC itself to
+        // put the main admin's password back to the ready-made one. All data is kept.
+        if (java.util.Arrays.asList(args).contains("--reset-admin") || flag("RESET_ADMIN", "superbistro.reset-admin")) {
+            if (alreadyRunning(port)) {
+                notice("Super Bistro is running.\n\nClose the black Super Bistro window first (or restart the PC),\n"
+                    + "then open \"Reset Super Bistro password\" again.");
+                return;
+            }
+            if (!configured) {
+                notice("Super Bistro isn't set up on this PC yet.\n\nJust open Super Bistro: the first login is "
+                    + DEFAULT_LOGIN + " / " + DEFAULT_PASSWORD + ".");
+                return;
+            }
+            System.setProperty("superbistro.reset-admin", "true");
+        }
 
         // Shortcut clicked while Super Bistro is already running (e.g. started at Windows login):
         // just open it in the browser instead of failing on a busy port.
@@ -44,11 +64,6 @@ public final class Launcher {
             Browser.open("http://localhost:" + port);
             return;
         }
-
-        Path config = dataDir.resolve(CONFIG_FILE);
-        boolean configured = env("DB_URL", "spring.datasource.url") != null
-            || flag("EMBEDDED_DB", "superbistro.embedded-db")
-            || Files.exists(config);
 
         if (configured) {
             startApp(args, dataDir);
@@ -62,6 +77,20 @@ public final class Launcher {
         } else {
             Files.createDirectories(dataDir);
             new SetupServer(port, dataDir, desktop, () -> startApp(args, dataDir)).start();
+        }
+    }
+
+    /** Shows a message in the console and, on a desktop, in a small window. */
+    private static void notice(String text) {
+        System.out.println();
+        System.out.println(text);
+        System.out.println();
+        if (!java.awt.GraphicsEnvironment.isHeadless()) {
+            try {
+                javax.swing.JOptionPane.showMessageDialog(null, text, "Super Bistro", javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception | Error ignored) {
+                // console message is enough
+            }
         }
     }
 

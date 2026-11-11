@@ -18,7 +18,7 @@ if not exist target\superbistro.jar (
   call mvnw.cmd -B -DskipTests package || exit /b 1
 )
 
-set VERSION=1.0.0
+set VERSION=1.0.1
 rmdir /s /q dist 2>nul
 mkdir dist\input
 copy /y target\superbistro.jar dist\input\ >nul
@@ -27,7 +27,8 @@ set COMMON=--input dist\input --main-jar superbistro.jar --name SuperBistro --ap
   --vendor "Super Bistro" --description "Restaurant order desk" ^
   --java-options "-Dsuperbistro.open-browser=true" ^
   --java-options "-Xmx512m" ^
-  --win-console
+  --win-console ^
+  --add-launcher Reset-Super-Bistro-Password=packaging\windows\reset-password.properties
 
 echo.
 echo [1/2] Portable app folder (no installer needed)...
@@ -48,4 +49,7 @@ jpackage --type exe --dest dist %COMMON% ^
 
 echo.
 echo Done. Files in dist\:
+rem Same file names for every version, so the "latest release" download links never change.
+copy /y dist\SuperBistro-%VERSION%.exe dist\SuperBistro-Setup.exe >nul
+copy /y dist\SuperBistro-%VERSION%-portable.zip dist\SuperBistro-portable.zip >nul
 dir /b dist\*.exe dist\*.zip
