@@ -57,7 +57,9 @@ jobs:
         timeout-minutes: 6
         shell: pwsh
         run: |
-          $data = Join-Path $env:RUNNER_TEMP "sb-smoke"
+          # Same kind of folder as a real install (C:\ProgramData\SuperBistro); the runner's temp folder
+          # doesn't let PostgreSQL set its folder permissions.
+          $data = Join-Path $env:ProgramData "SuperBistroSmoke"
           $env:DATA_DIR = $data; $env:PORT = "18080"
           $p = Start-Process -FilePath "dist\portable\SuperBistro\SuperBistro.exe" -PassThru -NoNewWindow -RedirectStandardOutput "$env:RUNNER_TEMP\sb-out.txt" -RedirectStandardError "$env:RUNNER_TEMP\sb-err.txt"
           $ok = $false

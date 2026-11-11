@@ -18,11 +18,12 @@ function where(o) {
   return TYPES[o.type];
 }
 const itemsText = (o) => o.items.map((i) => `${i.qty}× ${i.name}`).join(", ");
+const REASONS = ["Customer left", "Wrong order", "Dish not available", "Duplicate order", "Test order"];
 
-export default function Orders({ orders, setOrders, toast, session }) {
+export default function Orders({ orders, setOrders, toast, session, canStore, setAddTo, printKot, go }) {
   const [day, setDay] = useState("today");
   const [source, setSource] = useState("ALL");
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { id, reason } while choosing why to cancel
   const [bill, setBill] = useState(null);
   useMinuteTick();
 
@@ -55,30 +56,42 @@ export default function Orders({ orders, setOrders, toast, session }) {
       <article key={o.id} className={"kot " + srcClass(o.source)}>
         <div className="kot-top"><span className="kot-no">#{o.no}</span><span className={"chip " + srcClass(o.source)}>{SOURCES[o.source]}</span></div>
         <div className="kot-meta">
-          <span>{where(o)}</span>{o.customer && <span>{o.customer}</span>}{o.phone && <span className="mono">{o.phone}</span>}<span>{hhmm(o.createdAt)}</span>
+          <span>{where(o)}</span>{o.customer && <span>{o.customer}</span>}{o.address && <span>{o.address}</span>}{o.phone && <span className="mono">{o.phone}</span>}<span>{hhmm(o.createdAt)}</span>
           <span className={"age" + (age >= LATE_MIN ? " late" : "")}>{age} min</span>
         </div>
-        <ul className="kot-items">{o.items.map((i, n) => <li key={n}><b>{i.qty}×</b>{i.name}{i.note && <span className="kot-note-line">↳ {i.note}</span>}</li>)}</ul>
+        <ul className="kot-items">{o.items.map((i, n) => (
+          <li key={n} className={i.round > 1 ? "added" : undefined}><b>{i.qty}×</b>{i.name}
+            {i.round > 1 && <span className="round-tag">added</span>}
+            {i.note && <span className="kot-note-line">↳ {i.note}</span>}</li>
+        ))}</ul>
         {o.note && <div className="kot-note">{o.note}</div>}
         <div className="kot-foot">
           <span className="kot-total">{inr(o.total)} <small>{PAYMENTS[o.payment]}</small></span>
           <div className="kot-actions">
-            {confirm === o.id ? (
-              <>
-                <button className="btn sm danger" onClick={() => { setConfirm(null); update(o, { status: "CANCELLED" }, `Order #${o.no} cancelled`); }}>Yes, cancel</button>
-                <button className="btn sm" onClick={() => setConfirm(null)}>Keep</button>
-              </>
-            ) : (
-              <>
-                <button className="btn sm" onClick={() => setConfirm(o.id)} aria-label={`Cancel order ${o.no}`}>Cancel</button>
-                <button className="btn sm" onClick={() => setBill(o)}>Bill</button>
-                <button className="btn sm primary" onClick={() => update(o, { status: NEXT_STATUS[o.status] }, o.status === "READY" ? `Order #${o.no} completed` : null)}>
-                  {NEXT_LABEL[o.status]}
-                </button>
-              </>
-            )}
+            {canStore && <button className="btn sm" onClick={() => setConfirm({ id: o.id, reason: "" })} aria-label={`Cancel order ${o.no}`}>Cancel</button>}
+            <button className="btn sm" onClick={() => printKot(o, null)} title="Print the kitchen slip again">KOT</button>
+            <button className="btn sm" onClick={() => { setAddTo(o); go("pos"); }} title="Add more dishes to this order (running bill)">Add items</button>
+            <button className="btn sm" onClick={() => setBill(o)}>Bill</button>
+            <button className="btn sm primary" onClick={() => update(o, { status: NEXT_STATUS[o.status] }, o.status === "READY" ? `Order #${o.no} completed` : null)}>
+              {NEXT_LABEL[o.status]}
+            </button>
           </div>
         </div>
+        {confirm?.id === o.id && (
+          <div className="cancel-box">
+            <span className="label">Why cancel order #{o.no}?</span>
+            <div className="reasons">
+              {REASONS.map((r) => <button key={r} className="btn sm" aria-pressed={confirm.reason === r} onClick={() => setConfirm({ ...confirm, reason: r })}>{r}</button>)}
+            </div>
+            <input className="input" value={REASONS.includes(confirm.reason) ? "" : confirm.reason} placeholder="Other reason…"
+              onChange={(e) => setConfirm({ ...confirm, reason: e.target.value })} maxLength={200} />
+            <div className="reasons">
+              <button className="btn sm danger" disabled={!confirm.reason.trim()}
+                onClick={() => { const reason = confirm.reason.trim(); setConfirm(null); update(o, { status: "CANCELLED", reason }, `Order #${o.no} cancelled`); }}>Cancel order</button>
+              <button className="btn sm" onClick={() => setConfirm(null)}>Keep order</button>
+            </div>
+          </div>
+        )}
         {o.payment === "UNPAID" && (
           <div className="kot-pay">
             <span className="label">Collect payment:</span>
@@ -123,7 +136,7 @@ export default function Orders({ orders, setOrders, toast, session }) {
                   <span className="mono"><b>#{o.no}</b> {hhmm(o.createdAt)}</span>
                   <span className="items" title={itemsText(o)}>{itemsText(o)}</span>
                   <span className={"chip " + srcClass(o.source)}>{SOURCES[o.source]}</span>
-                  <span className="mono">{o.status === "CANCELLED" ? "Cancelled" : inr(o.total)}</span>
+                  <span className="mono" title={o.cancelReason || undefined}>{o.status === "CANCELLED" ? "Cancelled" + (o.cancelReason ? " · " + o.cancelReason : "") : inr(o.total)}</span>
                   {o.status !== "CANCELLED" && <button className="btn sm" onClick={() => setBill(o)}>Bill</button>}
                 </div>
               ))}

@@ -92,6 +92,22 @@ public class CustomerOrder {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** Latest kitchen round: 1 for a new order, +1 each time dishes are added to the running bill. */
+    @Column(name = "kot_round", nullable = false)
+    private int kotRound = 1;
+
+    @Column(nullable = false, length = 300)
+    private String address = "";
+
+    @Column(name = "cancel_reason", nullable = false, length = 200)
+    private String cancelReason = "";
+
+    @Column(name = "cancelled_by")
+    private UUID cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("lineNo")
     private List<OrderItem> items = new ArrayList<>();
@@ -114,7 +130,25 @@ public class CustomerOrder {
 
     public void addItem(UUID menuItemId, String name, int qty, BigDecimal price, BigDecimal menuPrice,
                         BigDecimal lineDiscount, String note) {
-        items.add(new OrderItem(this, items.size() + 1, menuItemId, name, qty, price, menuPrice, lineDiscount, note));
+        items.add(new OrderItem(this, items.size() + 1, menuItemId, name, qty, price, menuPrice, lineDiscount, note, kotRound));
+        this.updatedAt = Instant.now();
+    }
+
+    /** Starts the next kitchen round: dishes added from now on go on a new KOT. */
+    public void nextRound() {
+        this.kotRound++;
+    }
+
+    public void cancel(UUID by, String reason) {
+        this.status = Status.CANCELLED;
+        this.cancelledBy = by;
+        this.cancelledAt = Instant.now();
+        this.cancelReason = reason;
+        this.updatedAt = this.cancelledAt;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public void setStatus(Status status) {
@@ -164,4 +198,9 @@ public class CustomerOrder {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public List<OrderItem> getItems() { return items; }
+    public int getKotRound() { return kotRound; }
+    public String getAddress() { return address; }
+    public String getCancelReason() { return cancelReason; }
+    public UUID getCancelledBy() { return cancelledBy; }
+    public Instant getCancelledAt() { return cancelledAt; }
 }

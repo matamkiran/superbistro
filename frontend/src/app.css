@@ -446,12 +446,65 @@ button.qty-edit span { font-size: 11px; color: var(--muted); }
 .inv-sums div { display: flex; justify-content: space-between; }
 .inv-total { font-size: 15px; font-weight: 700; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 3px 0; margin: 3px 0; }
 .inv-foot { text-align: center; margin-top: 8px; border-top: 1px dashed #111; padding-top: 6px; }
+/* ---------- kitchen slip (KOT), printed on the 80 mm printer ---------- */
+.kot-slip { position: fixed; left: -10000px; top: 0; width: 80mm; padding: 3mm; background: #fff; color: #000;
+  font: 13px/1.35 "Courier New", ui-monospace, monospace; }
+.ks-title { text-align: center; font-weight: 700; letter-spacing: .08em; border-bottom: 1px dashed #000; padding-bottom: 3px; }
+.ks-big { font-size: 20px; font-weight: 700; text-align: center; margin: 4px 0 2px; }
+.ks-meta { text-align: center; margin-bottom: 4px; }
+.ks-items { width: 100%; border-collapse: collapse; border-top: 1px dashed #000; }
+.ks-items td { padding: 4px 0; vertical-align: top; font-size: 16px; font-weight: 700; }
+.ks-q { width: 12mm; }
+.ks-note { font-size: 13px; font-weight: 400; }
+.ks-order-note { border-top: 1px dashed #000; padding-top: 3px; }
+.ks-foot { border-top: 1px dashed #000; margin-top: 4px; padding-top: 3px; text-align: center; }
+
 @media print {
   @page { size: 80mm auto; margin: 0; }
   body * { visibility: hidden !important; }
   #invoice-print, #invoice-print * { visibility: visible !important; }
   #invoice-print { position: absolute; left: 0; top: 0; box-shadow: none; width: 80mm; padding: 3mm; }
   .ip-backdrop { background: none !important; }
+  body.printing-kot #invoice-print, body.printing-kot #invoice-print * { visibility: hidden !important; }
+  body.printing-kot #kot-print, body.printing-kot #kot-print * { visibility: visible !important; }
+  #kot-print { left: 0; position: absolute; }
+}
+
+/* ---------- running bill, customers, cancel control ---------- */
+.adding { display: grid; gap: 6px; background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; justify-items: start; }
+.table-open { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.cust-card { display: grid; gap: 2px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.cust-card.new { border-left-color: var(--muted); }
+.cust-reward { color: var(--accent); font-weight: 700; }
+.kot-items li.added { color: var(--accent); }
+.round-tag { margin-left: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; }
+.cancel-box { display: grid; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 8px; }
+.reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+.reasons .btn[aria-pressed="true"] { border-color: var(--bad); color: var(--bad); }
+.cancelled-list { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px; }
+.cancelled-list h3 { margin: 0 0 6px; font-size: 14px; color: var(--bad); }
+.cancelled-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cancelled-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; font-size: 13px; }
+.chips { margin: 0 0 12px; }
+.offer { margin-bottom: 12px; }
+.cust-table { overflow-x: auto; padding: 0; }
+.cust-table table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.cust-table th, .cust-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+.cust-table th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.cust-table .r { text-align: right; }
+.linklike { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--fg); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.chip.good { color: var(--accent); }
+.chip.warn { color: var(--swiggy, #c46a12); }
+.cust-detail { width: min(640px, 100%); padding: 0 16px 16px; gap: 10px; align-content: start; }
+.cust-detail .ip-head { margin: 0 -16px; justify-content: space-between; }
+.cust-detail h3 { margin: 6px 0 0; font-size: 15px; }
+.cust-orders { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.cust-orders li { display: grid; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px; font-size: 13px; }
+.cust-orders li.cancelled { opacity: .6; }
+@media (max-width: 560px) {
+  .cust-table th:nth-child(5), .cust-table td:nth-child(5) { display: none; }
+  .cancelled-list li { grid-template-columns: 1fr; gap: 0; }
 }
 
 /* ---------- toast ---------- */

@@ -18,6 +18,7 @@ export default function Invoice({ order: o, restaurant: r, onClose, toast }) {
     dt(o.createdAt),
     o.customer && `Customer: ${o.customer}`,
     o.phone && `Mobile: ${o.phone}`,
+    o.address && `Deliver to: ${o.address}`,
     "",
     ...o.items.map((i) => `${i.qty} x ${i.name} @ ${money(i.price)} = ₹${money(i.lineTotal)}${Number(i.lineDiscount) > 0 ? ` (−${money(i.lineDiscount)})` : ""}`),
     "",
@@ -69,6 +70,7 @@ export default function Invoice({ order: o, restaurant: r, onClose, toast }) {
             <div><span>Type</span><b>{o.source === "OFFLINE" ? TYPES[o.type] + (o.table ? ` · Table ${o.table}` : "") : `${SOURCES[o.source]}${o.platformId ? ` · ${o.platformId}` : ""}`}</b></div>
             {o.customer && <div><span>Customer</span><b>{o.customer}</b></div>}
             {o.phone && <div className="inv-phone"><span>Mobile</span><b>{o.phone}</b></div>}
+            {o.address && <div><span>Deliver to</span><b>{o.address}</b></div>}
             {o.type === "DELIVERY" && o.note && <div><span>Address</span><b>{o.note}</b></div>}
           </div>
 

@@ -13,6 +13,7 @@ import com.superbistro.common.ApiException;
 import com.superbistro.config.AppProperties;
 import com.superbistro.order.OrderDtos.NewOrder;
 import com.superbistro.order.OrderDtos.OrderDto;
+import com.superbistro.order.OrderDtos.AddItems;
 import com.superbistro.order.OrderDtos.OrderPatch;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -57,8 +58,14 @@ public class OrderController {
         return service.create(me, req);
     }
 
+    /** Running table bill: add dishes to an open order. */
+    @PostMapping("/{id}/items")
+    public OrderDto addItems(@AuthenticationPrincipal CurrentUser me, @PathVariable UUID id, @Valid @RequestBody AddItems req) {
+        return service.addItems(me, id, req.items());
+    }
+
     @PatchMapping("/{id}")
-    public OrderDto patch(@AuthenticationPrincipal CurrentUser me, @PathVariable UUID id, @RequestBody OrderPatch req) {
+    public OrderDto patch(@AuthenticationPrincipal CurrentUser me, @PathVariable UUID id, @Valid @RequestBody OrderPatch req) {
         return service.patch(me, id, req);
     }
 }

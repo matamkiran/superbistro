@@ -1,11 +1,28 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, catIcon, inr, PAYMENTS, SOURCES, TYPES, startOfDay } from "../api.js";
 import ItemPopup from "./ItemPopup.jsx";
 import Invoice from "./Invoice.jsx";
 
 const blankDraft = (source = "OFFLINE") => ({
-  source, type: "DINE_IN", table: "", customer: "", phone: "", platformId: "", note: "", discount: "", payment: "CASH",
+  source, type: "DINE_IN", table: "", customer: "", phone: "", platformId: "", note: "", address: "", discount: "", payment: "UNPAID",
 });
+
+const KOT_KEY = "superbistro.autoKot";
+const readKotPref = () => {
+  try {
+    return localStorage.getItem(KOT_KEY) === "on";
+  } catch {
+    return false;
+  }
+};
+const phoneKey = (p) => {
+  const d = String(p || "").replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : "";
+};
+const ago = (ms) => {
+  const days = Math.floor((Date.now() - ms) / 86400000);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+};
 
 const POPUP_KEY = "superbistro.itemPopup";
 const readPopupPref = () => {
@@ -31,7 +48,7 @@ function lineMath(l, dish) {
   return { price, gross, discAmt, total: gross - discAmt };
 }
 
-export default function Pos({ session, isOwner, menu, orders, setOrders, toast, go }) {
+export default function Pos({ session, isOwner, menu, orders, setOrders, toast, go, addTo, setAddTo, printKot }) {
   const [lines, setLines] = useState([]);
   const [d, setD] = useState(blankDraft());
   const [cat, setCat] = useState("All");
@@ -41,7 +58,39 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
   const [askDetails, setAskDetails] = useState(readPopupPref);
   const [lastOrder, setLastOrder] = useState(null);
   const [bill, setBill] = useState(null);
+  const [autoKot, setAutoKot] = useState(readKotPref);
+  const [known, setKnown] = useState(null); // { key, customer, favourites } for the typed mobile number
   const ticketRef = useRef(null);
+
+  // Typed a 10-digit mobile number: who is it? Fills in the name (and address) when they're empty.
+  const pKey = phoneKey(d.phone);
+  useEffect(() => {
+    if (!pKey || addTo) {
+      setKnown(null);
+      return undefined;
+    }
+    let stop = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api("GET", "customers/lookup?phone=" + pKey);
+        if (stop) return;
+        setKnown({ key: pKey, ...r });
+        if (r.customer) {
+          setD((cur) => ({
+            ...cur,
+            customer: cur.customer || r.customer.name || "",
+            address: cur.address || r.customer.address || "",
+          }));
+        }
+      } catch {
+        /* lookup is a convenience */
+      }
+    }, 350);
+    return () => {
+      stop = true;
+      clearTimeout(t);
+    };
+  }, [pKey, addTo]);
 
   const active = useMemo(() => menu.filter((m) => m.active), [menu]);
   const cats = useMemo(() => ["All", ...new Set(active.map((m) => m.category))], [active]);
@@ -62,6 +111,12 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
 
   const today = startOfDay(Date.now());
   const nextNo = orders.filter((o) => o.createdAt >= today).reduce((m, o) => Math.max(m, o.no), 0) + 1;
+  const isOpen = (o) => o.status !== "COMPLETED" && o.status !== "CANCELLED";
+  // Running table bill: this table already has an open order today.
+  const tableOrder = !addTo && isOff && d.type === "DINE_IN" && d.table.trim()
+    ? orders.find((o) => o.createdAt >= today && isOpen(o) && o.type === "DINE_IN" && o.table.toLowerCase() === d.table.trim().toLowerCase())
+    : null;
+  const addingTo = addTo ? orders.find((o) => o.id === addTo.id) || addTo : null;
 
   // Quick add: one more on the plain line for this dish (no price change, discount or note), else a new line.
   const quickAdd = (id) => setLines((ls) => {
@@ -97,7 +152,46 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
 
   const set = (k) => (e) => setD({ ...d, [k]: e.target.value });
 
+  const toggleKot = () => {
+    const v = !autoKot;
+    setAutoKot(v);
+    try {
+      localStorage.setItem(KOT_KEY, v ? "on" : "off");
+    } catch {
+      /* private mode */
+    }
+  };
+
+  const lineBody = () => rows.map((r) => ({
+    menuItemId: r.id,
+    qty: r.qty,
+    price: r.price !== r.dish.price ? r.price : undefined,
+    discount: r.disc > 0 ? r.disc : undefined,
+    discountType: r.disc > 0 ? r.discType : undefined,
+    note: r.note || undefined,
+  }));
+
+  // Running bill: send the ticket's dishes to the open order as its next kitchen round.
+  const addToOrder = async () => {
+    if (!rows.length) return toast("Add at least one dish first", true);
+    setBusy(true);
+    try {
+      const o = await api("POST", `orders/${addingTo.id}/items`, { items: lineBody() });
+      setOrders((list) => list.map((x) => (x.id === o.id ? o : x)));
+      setLines([]);
+      setAddTo(null);
+      setLastOrder(o);
+      toast(`Added to order #${o.no} · bill now ${inr(o.total)}`);
+      if (autoKot) printKot(o, o.round);
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const place = async () => {
+    if (addingTo) return addToOrder();
     if (!rows.length) return toast("Add at least one dish first", true);
     setBusy(true);
     try {
@@ -106,21 +200,16 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
         type: isOff ? d.type : undefined,
         payment: isOff ? d.payment : undefined,
         table: d.table, customer: d.customer, phone: d.phone, platformId: d.platformId, note: d.note,
+        address: isOff && d.type === "DELIVERY" ? d.address : undefined,
         discount,
-        items: rows.map((r) => ({
-          menuItemId: r.id,
-          qty: r.qty,
-          price: r.price !== r.dish.price ? r.price : undefined,
-          discount: r.disc > 0 ? r.disc : undefined,
-          discountType: r.disc > 0 ? r.discType : undefined,
-          note: r.note || undefined,
-        })),
+        items: lineBody(),
       });
       setOrders((list) => [o, ...list.filter((x) => x.id !== o.id)]);
       setLines([]);
       setD(blankDraft(d.source));
       setLastOrder(o);
       toast(`Order #${o.no} placed · ${inr(o.total)}`);
+      if (autoKot) printKot(o, null);
     } catch (e) {
       toast(e.message, true);
     } finally {
@@ -169,13 +258,23 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
 
       <aside className="ticket" ref={ticketRef} aria-label="Current order">
         <div className="ticket-head">
-          <div className="ticket-title"><h2>New order</h2><span className="ticket-no">#{nextNo} · today</span></div>
-          {lastOrder && (
+          {addingTo ? (
+            <div className="adding">
+              <h2>Add to order #{addingTo.no}</h2>
+              <span className="ticket-no">{addingTo.table ? "Table " + addingTo.table + " · " : ""}bill so far {inr(addingTo.total)}</span>
+              <p className="muted">Dishes you tap now are added to this order and go to the kitchen as a new KOT.</p>
+              <button className="btn sm" onClick={() => { setAddTo(null); setLines([]); }}>Stop adding, back to new order</button>
+            </div>
+          ) : (
+            <div className="ticket-title"><h2>New order</h2><span className="ticket-no">#{nextNo} · today</span></div>
+          )}
+          {lastOrder && !addingTo && (
             <div className="last-order">
               <span>Last: <b>#{lastOrder.no}</b> · {inr(lastOrder.total)}{lastOrder.phone ? ` · ${lastOrder.phone}` : ""}</span>
               <button className="btn sm" onClick={() => setBill(lastOrder)}>Bill</button>
             </div>
           )}
+          {!addingTo && <>
           <div className="seg src" role="group" aria-label="Order source">
             {Object.entries(SOURCES).map(([k, v]) => (
               <button key={k} data-src={k} aria-pressed={d.source === k} onClick={() => setD({ ...d, source: k })}>{v}</button>
@@ -186,7 +285,7 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
             <>
               <div className="seg" role="group" aria-label="Order type">
                 {Object.entries(TYPES).map(([k, v]) => (
-                  <button key={k} aria-pressed={d.type === k} onClick={() => setD({ ...d, type: k })}>{v}</button>
+                  <button key={k} aria-pressed={d.type === k} onClick={() => setD({ ...d, type: k, payment: k === "DINE_IN" ? "UNPAID" : d.payment === "UNPAID" ? "CASH" : d.payment })}>{v}</button>
                 ))}
               </div>
               <div className="two">
@@ -200,8 +299,14 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
               <div className="field"><label htmlFor="d-phone">Customer mobile {d.type !== "DINE_IN" ? "" : "(for the bill on WhatsApp)"}</label>
                 <input className="input mono" id="d-phone" value={d.phone} onChange={set("phone")} inputMode="tel" placeholder="98xxxxxx10" autoComplete="off" /></div>
               {d.type === "DELIVERY" && (
-                <div className="field"><label htmlFor="d-note">Address / note</label>
-                  <input className="input" id="d-note" value={d.note} onChange={set("note")} placeholder="Flat, street, landmark" autoComplete="off" /></div>
+                <div className="field"><label htmlFor="d-addr">Delivery address</label>
+                  <input className="input" id="d-addr" value={d.address} onChange={set("address")} placeholder="Flat, street, landmark" autoComplete="off" /></div>
+              )}
+              {tableOrder && (
+                <div className="table-open">
+                  <span>Table {tableOrder.table} already has order <b>#{tableOrder.no}</b> ({inr(tableOrder.total)}).</span>
+                  <button className="btn sm primary" onClick={() => setAddTo(tableOrder)}>Add to #{tableOrder.no}</button>
+                </div>
               )}
             </>
           ) : (
@@ -216,6 +321,17 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
                 <input className="input mono" id="d-phone" value={d.phone} onChange={set("phone")} inputMode="tel" placeholder="98xxxxxx10" autoComplete="off" /></div>
             </>
           )}
+          {known && known.key === pKey && (
+            known.customer ? (
+              <div className="cust-card">
+                <b>{known.customer.visits >= 2 ? "Repeat customer" : "Customer"}{known.customer.name ? " · " + known.customer.name : ""}</b>
+                <span>{known.customer.visits} order{known.customer.visits === 1 ? "" : "s"} · {inr(known.customer.spent)} · last {ago(known.customer.lastAt)}</span>
+                {(known.customer.visits + 1) % 10 === 0 && <span className="cust-reward">This is their {known.customer.visits + 1}th order. Thank them with a treat!</span>}
+                {known.favourites?.length > 0 && <span className="muted">Usually: {known.favourites.join(", ")}</span>}
+              </div>
+            ) : <div className="cust-card new"><b>New customer</b><span className="muted">First order with this number.</span></div>
+          )}
+          </>}
         </div>
 
         <div className="ticket-body">
@@ -241,7 +357,7 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
         </div>
 
         <div className="ticket-foot">
-          {isOff ? (
+          {addingTo ? null : isOff ? (
             <div className="two">
               <div className="field"><label htmlFor="d-pay">Payment</label>
                 <select className="input" id="d-pay" value={d.payment} onChange={set("payment")}>
@@ -251,15 +367,26 @@ export default function Pos({ session, isOwner, menu, orders, setOrders, toast, 
                 <input className="input mono" id="d-disc" value={d.discount} onChange={set("discount")} inputMode="decimal" placeholder="0" autoComplete="off" /></div>
             </div>
           ) : <div className="label">Paid on {SOURCES[d.source]}</div>}
+          <label className="check pref" title="Print a kitchen slip (KOT) each time an order is placed or dishes are added">
+            <input type="checkbox" checked={autoKot} onChange={toggleKot} /> Print kitchen slip (KOT)
+          </label>
+          {addingTo ? (
+            <div className="sums">
+              <div><span>Adding ({count} item{count === 1 ? "" : "s"})</span><span>{inr(subtotal)}</span></div>
+              <div className="grand"><span>Bill after adding</span><span>{inr(Number(addingTo.total) + (subtotal * (100 + gstPct)) / 100)}</span></div>
+            </div>
+          ) : (
           <div className="sums">
             <div><span>Subtotal ({count} item{count === 1 ? "" : "s"})</span><span>{inr(subtotal)}</span></div>
             {discount > 0 && <div><span>Bill discount</span><span>−{inr(discount)}</span></div>}
             {gstPct > 0 && <div><span>GST {gstPct}%</span><span>{inr(gstAmt)}</span></div>}
             <div className="grand"><span>Total</span><span>{inr(total)}</span></div>
           </div>
+          )}
           <div className="two">
             <button className="btn" onClick={() => setLines([])} disabled={!rows.length}>Clear</button>
-            <button className="btn primary" onClick={place} disabled={!rows.length || busy}>{busy ? "Placing…" : "Place order"}</button>
+            <button className="btn primary" onClick={place} disabled={!rows.length || busy}>
+              {busy ? "Saving…" : addingTo ? `Add to order #${addingTo.no}` : "Place order"}</button>
           </div>
         </div>
       </aside>

@@ -9,6 +9,18 @@ see what sells best, and back everything up to Google Drive every night.
   screens. Untick *Details on tap* for one-tap adding; tap any line on the ticket to edit it later.
 - **Orders** — live kitchen board (New → Preparing → Ready → Done) on every screen, refreshes every
   5 seconds, shows kitchen notes, highlights orders waiting 20+ minutes, collects "pay later" bills.
+- **Running table bill** — type a table that already has an open order and press **Add to #N**, or
+  **Add items** on the order card: the dishes go to the same order (one bill) and to the kitchen as a new
+  round, marked *added*. Dine-in orders default to *Pay later*: collect payment at the end.
+- **Kitchen slip (KOT)** — tick *Print kitchen slip* on New order to print a KOT for every new order and for
+  every set of added dishes (only the new ones); **KOT** on an order card prints it again. To print without the
+  print dialog, start Chrome/Edge with `--kiosk-printing` and set the kitchen printer as default.
+- **Cancel control** — only the owner or a manager can cancel, always with a reason; the day book lists
+  every cancelled bill with who cancelled it and when.
+- **Customers** (owner, manager) — everyone who gave a mobile number: orders, money spent, last visit, tags
+  (Regular, New, Not seen 30+ days), order history, **WhatsApp** offer message, **Export list** for Excel.
+  On New order, typing a known number fills in the name and address and shows "Repeat customer · 7 orders ·
+  usually: …".
 - **Top selling** — best sellers with an Offline / Zomato / Swiggy split, sales, average bill, busy hours.
 - **Menu** (admin page) — edit name, price, section and veg in place, search, rename a section, mark a
   section sold out, import from Excel/CSV, export to CSV.

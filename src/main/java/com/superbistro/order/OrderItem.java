@@ -49,11 +49,15 @@ public class OrderItem {
     @Column(nullable = false, length = 120)
     private String note = "";
 
+    /** 1 = with the order; 2, 3, ... = added later to the running bill (each round has its own KOT). */
+    @Column(name = "kot_round", nullable = false)
+    private int kotRound = 1;
+
     protected OrderItem() {
     }
 
     OrderItem(CustomerOrder order, int lineNo, UUID menuItemId, String name, int qty, BigDecimal price,
-              BigDecimal menuPrice, BigDecimal lineDiscount, String note) {
+              BigDecimal menuPrice, BigDecimal lineDiscount, String note, int kotRound) {
         this.id = UUID.randomUUID();
         this.order = order;
         this.lineNo = lineNo;
@@ -64,6 +68,7 @@ public class OrderItem {
         this.menuPrice = menuPrice;
         this.lineDiscount = lineDiscount;
         this.note = note;
+        this.kotRound = kotRound;
     }
 
     /** qty x price minus the line discount. */
@@ -80,4 +85,5 @@ public class OrderItem {
     public BigDecimal getMenuPrice() { return menuPrice == null ? price : menuPrice; }
     public BigDecimal getLineDiscount() { return lineDiscount; }
     public String getNote() { return note; }
+    public int getKotRound() { return kotRound; }
 }

@@ -99,6 +99,20 @@ export default function DayBook({ toast }) {
             ))}
           </ul>
           <p className="muted">By channel: Offline {inr0(d.bySource.OFFLINE)} · Zomato {inr0(d.bySource.ZOMATO)} · Swiggy {inr0(d.bySource.SWIGGY)}</p>
+          {d.cancelledOrders?.length > 0 && (
+            <div className="cancelled-list">
+              <h3>Cancelled bills ({d.cancelledOrders.length})</h3>
+              <ul>
+                {d.cancelledOrders.map((c) => (
+                  <li key={c.no}>
+                    <span className="mono"><b>#{c.no}</b> {inr(c.total)}</span>
+                    <span>{c.reason || "No reason"}</span>
+                    <span className="muted">{c.by || "?"} · {new Date(c.at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         <section className="panel form drawer">

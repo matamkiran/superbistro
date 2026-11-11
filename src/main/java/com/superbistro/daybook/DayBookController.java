@@ -145,6 +145,21 @@ public class DayBookController {
         out.put("today", LocalDate.now(props.zone()).toString());
         out.put("orders", orders);
         out.put("cancelled", cancelled);
+        // Every cancelled bill with who cancelled it and why, so nothing disappears quietly.
+        out.put("cancelledOrders", jdbc.query(
+            "SELECT o.order_no, o.total, o.cancel_reason, o.cancelled_at, o.created_at, u.name AS by_name FROM customer_order o"
+                + " LEFT JOIN app_user u ON u.id = o.cancelled_by WHERE o.restaurant_id = ? AND o.business_day = ? AND o.status = 'CANCELLED'"
+                + " ORDER BY o.order_no",
+            (rs, i) -> {
+                Map<String, Object> c = new LinkedHashMap<>();
+                c.put("no", rs.getInt("order_no"));
+                c.put("total", rs.getBigDecimal("total"));
+                c.put("reason", rs.getString("cancel_reason"));
+                java.sql.Timestamp at = rs.getTimestamp("cancelled_at");
+                c.put("at", at == null ? rs.getTimestamp("created_at").getTime() : at.getTime());
+                c.put("by", rs.getString("by_name") == null ? "" : rs.getString("by_name"));
+                return c;
+            }, me.restaurantId(), d));
         out.put("sales", sales);
         out.put("received", sales.subtract(byPayment.get("UNPAID")));
         out.put("byPayment", byPayment);

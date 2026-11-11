@@ -43,25 +43,32 @@ public final class OrderDtos {
         @jakarta.validation.constraints.Pattern(regexp = "|\\+?[0-9 -]{6,16}", message = "should be a mobile number like 9876543210") String phone,
         @Size(max = 40) String platformId,
         @Size(max = 300) String note,
+        @Size(max = 300) String address,
         @DecimalMin("0") BigDecimal discount,
         @NotEmpty(message = "add at least one dish") @Size(max = 100) List<@Valid NewLine> items) {
     }
 
-    public record OrderPatch(Status status, Payment payment) {
+    /** reason: required when cancelling. */
+    public record OrderPatch(Status status, Payment payment, @Size(max = 200) String reason) {
+    }
+
+    /** More dishes for an open order (running table bill). */
+    public record AddItems(@NotEmpty(message = "add at least one dish") @Size(max = 100) List<@Valid NewLine> items) {
     }
 
     public record LineDto(String menuItemId, String name, int qty, BigDecimal price, BigDecimal menuPrice,
-                          BigDecimal lineDiscount, BigDecimal lineTotal, String note) {
+                          BigDecimal lineDiscount, BigDecimal lineTotal, String note, int round) {
         static LineDto of(OrderItem i) {
             return new LineDto(i.getMenuItemId() == null ? null : i.getMenuItemId().toString(), i.getName(), i.getQty(),
-                i.getPrice(), i.getMenuPrice(), i.getLineDiscount(), i.lineTotal(), i.getNote());
+                i.getPrice(), i.getMenuPrice(), i.getLineDiscount(), i.lineTotal(), i.getNote(), i.getKotRound());
         }
     }
 
     public record OrderDto(
         String id, int no, String day, Source source, Type type, String table, String customer, String phone,
         String platformId, String note, BigDecimal subtotal, BigDecimal discount, BigDecimal gstPct, BigDecimal gstAmt,
-        BigDecimal total, Payment payment, Status status, long createdAt, long updatedAt, List<LineDto> items) {
+        BigDecimal total, Payment payment, Status status, long createdAt, long updatedAt, List<LineDto> items,
+        String address, int round, String cancelReason, Long cancelledAt) {
 
         static OrderDto of(CustomerOrder o) {
             return new OrderDto(
@@ -69,7 +76,9 @@ public final class OrderDtos {
                 o.getTableNo(), o.getCustomer(), o.getPhone(), o.getPlatformId(), o.getNote(), o.getSubtotal(),
                 o.getDiscount(), o.getGstPct(), o.getGstAmt(), o.getTotal(), o.getPayment(), o.getStatus(),
                 o.getCreatedAt().toEpochMilli(), o.getUpdatedAt().toEpochMilli(),
-                o.getItems().stream().map(LineDto::of).toList());
+                o.getItems().stream().map(LineDto::of).toList(),
+                o.getAddress(), o.getKotRound(), o.getCancelReason(),
+                o.getCancelledAt() == null ? null : o.getCancelledAt().toEpochMilli());
         }
     }
 }

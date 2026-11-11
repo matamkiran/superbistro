@@ -9,9 +9,11 @@ import Team from "./views/Team.jsx";
 import System from "./views/System.jsx";
 import Stock from "./views/Stock.jsx";
 import DayBook from "./views/DayBook.jsx";
+import Customers from "./views/Customers.jsx";
+import KotSlip from "./views/KotSlip.jsx";
 
 const POLL_MS = 5000;
-const VIEWS = ["pos", "orders", "top", "menu", "stock", "daybook", "team", "system"];
+const VIEWS = ["pos", "orders", "customers", "top", "menu", "stock", "daybook", "team", "system"];
 
 function useToast() {
   const [toast, setToast] = useState(null);
@@ -34,6 +36,26 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [online, setOnline] = useState(true);
   const [toast, showToast] = useToast();
+  const [addTo, setAddTo] = useState(null); // open order that the New order screen adds dishes to
+  const [kotJob, setKotJob] = useState(null); // { order, round } being printed for the kitchen
+
+  // Kitchen slip: render it, print it, then forget it.
+  const printKot = useCallback((order, round = null) => setKotJob({ order, round, at: Date.now() }), []);
+  useEffect(() => {
+    if (!kotJob) return;
+    document.body.classList.add("printing-kot");
+    const done = () => {
+      document.body.classList.remove("printing-kot");
+      setKotJob(null);
+    };
+    window.addEventListener("afterprint", done, { once: true });
+    const t = setTimeout(() => window.print(), 60);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("afterprint", done);
+      document.body.classList.remove("printing-kot");
+    };
+  }, [kotJob]);
 
   useEffect(() => {
     const onHash = () => {
@@ -104,17 +126,19 @@ export default function App() {
   const tabs = [
     ["pos", "New order"],
     ["orders", "Orders"],
+    ...(canStore ? [["customers", "Customers"]] : []),
     ["top", "Top selling"],
     ["menu", "Menu"],
     ...(canStore ? [["stock", "Store"], ["daybook", "Day book"]] : []),
     ...(isOwner ? [["team", "Settings"]] : []),
     ...(isAdmin ? [["system", "System"]] : []),
   ];
-  const blocked = (view === "team" && !isOwner) || (view === "system" && !isAdmin) || ((view === "stock" || view === "daybook") && !canStore);
+  const blocked = (view === "team" && !isOwner) || (view === "system" && !isAdmin) || ((view === "stock" || view === "daybook" || view === "customers") && !canStore);
   const current = blocked ? "pos" : view;
 
   const ctx = {
-    session, setSession, isOwner, menu, setMenu, loadMenu, orders, setOrders, loadOrders, toast: showToast, go,
+    session, setSession, isOwner, canStore, menu, setMenu, loadMenu, orders, setOrders, loadOrders, toast: showToast, go,
+    addTo, setAddTo, printKot,
   };
 
   return (
@@ -152,7 +176,10 @@ export default function App() {
         {current === "system" && <System {...ctx} />}
         {current === "stock" && <Stock {...ctx} />}
         {current === "daybook" && <DayBook {...ctx} />}
+        {current === "customers" && <Customers {...ctx} />}
       </main>
+
+      {kotJob && <KotSlip order={kotJob.order} round={kotJob.round} />}
 
       {toast && (
         <div className={"toast" + (toast.isErr ? " err" : "")} role="status" aria-live="polite">
