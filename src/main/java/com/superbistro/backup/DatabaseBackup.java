@@ -122,10 +122,12 @@ public final class DatabaseBackup {
             }
             String backupVersion = manifest.path("schemaVersion").asString();
             String current = schemaVersion(c);
-            if (!current.equals(backupVersion)) {
-                throw new IllegalArgumentException("This backup is from a " + (compare(backupVersion, current) < 0 ? "older" : "newer")
-                    + " Super Bistro (database version " + backupVersion + ", this one is " + current + "). "
-                    + "Install the same Super Bistro version that made it, restore, then update.");
+            // Older backups restore into a newer Super Bistro: database updates only add tables and
+            // columns (with defaults), and the restore names each backed-up column. A backup from a
+            // newer version can't be read by an older one.
+            if (compare(backupVersion, current) > 0) {
+                throw new IllegalArgumentException("This backup is from a newer Super Bistro (database version " + backupVersion
+                    + ", this one is " + current + "). Install the latest Super Bistro, then restore.");
             }
             List<String> tables = tables(c);
             Set<String> inBackup = new LinkedHashSet<>();

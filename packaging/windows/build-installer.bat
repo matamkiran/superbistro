@@ -18,16 +18,23 @@ if not exist target\superbistro.jar (
   call mvnw.cmd -B -DskipTests package || exit /b 1
 )
 
-set VERSION=1.0.2
+set VERSION=1.0.3
 rmdir /s /q dist 2>nul
 mkdir dist\input
 copy /y target\superbistro.jar dist\input\ >nul
+
+rem Only the parts of Java that Super Bistro uses (instead of the whole JDK): a much smaller download.
+set MODULES=java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,^
+java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.transaction.xa,java.xml,^
+jdk.charsets,jdk.crypto.ec,jdk.httpserver,jdk.management,jdk.naming.dns,jdk.unsupported,jdk.zipfs
 
 set COMMON=--input dist\input --main-jar superbistro.jar --name SuperBistro --app-version %VERSION% ^
   --vendor "Super Bistro" --description "Restaurant order desk" ^
   --java-options "-Dsuperbistro.open-browser=true" ^
   --java-options "-Xmx512m" ^
   --win-console ^
+  --add-modules %MODULES% ^
+  --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=zip-9" ^
   --add-launcher Reset-Super-Bistro-Password=packaging\windows\reset-password.properties
 
 echo.
