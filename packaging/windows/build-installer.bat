@@ -24,7 +24,7 @@ mkdir dist\input
 copy /y target\superbistro.jar dist\input\ >nul
 
 rem Only the parts of Java that Super Bistro uses (instead of the whole JDK): a much smaller download.
-set MODULES=java.base,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,^
+set MODULES=java.base,java.compiler,java.desktop,java.instrument,java.logging,java.management,java.naming,java.net.http,^
 java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.transaction.xa,java.xml,^
 jdk.charsets,jdk.crypto.ec,jdk.httpserver,jdk.management,jdk.naming.dns,jdk.unsupported,jdk.zipfs
 

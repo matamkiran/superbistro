@@ -54,18 +54,19 @@ jobs:
         shell: cmd
 
       - name: Smoke test the packed app (small Java runtime + built-in database on Windows)
+        timeout-minutes: 6
         shell: pwsh
         run: |
           $data = Join-Path $env:RUNNER_TEMP "sb-smoke"
           $env:DATA_DIR = $data; $env:PORT = "18080"
           $p = Start-Process -FilePath "dist\portable\SuperBistro\SuperBistro.exe" -PassThru -NoNewWindow -RedirectStandardOutput "$env:RUNNER_TEMP\sb-out.txt" -RedirectStandardError "$env:RUNNER_TEMP\sb-err.txt"
           $ok = $false
-          for ($i = 0; $i -lt 90; $i++) {
+          for ($i = 0; $i -lt 50; $i++) {
             Start-Sleep -Seconds 2
             try { $r = Invoke-RestMethod -Uri "http://localhost:18080/api/auth/config" -TimeoutSec 3; if ($r.firstStart) { $ok = $true; break } } catch { }
           }
-          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-          Get-Process postgres -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          & taskkill /T /F /PID $p.Id 2>&1 | Out-Null
+          Get-Process postgres, pg_ctl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           if (-not $ok) { Get-Content "$env:RUNNER_TEMP\sb-out.txt" -Tail 80; Get-Content "$env:RUNNER_TEMP\sb-err.txt" -Tail 40; throw "Super Bistro did not start from the packed app" }
           "Packed app started and served the login page."
           Get-ChildItem dist\*.exe, dist\*.zip | ForEach-Object { "{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
