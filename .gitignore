@@ -9,3 +9,4 @@ frontend/node_modules/
 .DS_Store
 local-demo-login.txt
 dist/
+src/main/resources/seed/admin.properties

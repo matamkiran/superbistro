@@ -38,18 +38,20 @@ class FirstStartTest {
     @Test
     void readyMadeLoginMustChangePassword() throws Exception {
         MockMvc mvc = MockMvcBuilders.webAppContextSetup(ctx).apply(springSecurity()).build();
-        Restaurant r = restaurants.save(new Restaurant("Super Bistro", BigDecimal.ZERO));
-        AppUser admin = new AppUser(r.getId(), Launcher.DEFAULT_LOGIN, "Admin", encoder.encode(Launcher.DEFAULT_PASSWORD), Role.OWNER);
-        admin.setPlatformAdmin(true);
+        // The app creates Super Bistro and its ready-made admin itself when there are no logins yet.
+        AppUser admin = users.findByEmail(Launcher.DEFAULT_LOGIN).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertTrue(admin.isPlatformAdmin());
+        org.junit.jupiter.api.Assertions.assertEquals("Super Bistro", restaurants.findById(admin.getRestaurantId()).orElseThrow().getName());
+        admin.setPasswordHash(encoder.encode(Launcher.DEFAULT_PASSWORD));
         admin.setMustChangePassword(true);
         users.save(admin);
 
         mvc.perform(get("/api/auth/config")).andExpect(jsonPath("$.firstStart", is(true)))
-            .andExpect(jsonPath("$.defaultLogin", is("admin")));
+            .andExpect(jsonPath("$.defaultLogin", is(Launcher.DEFAULT_LOGIN)));
 
         MockHttpSession s = new MockHttpSession();
         var res = mvc.perform(post("/api/auth/login").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin\",\"password\":\"superbistro\"}"))
+                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"superbistro\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.user.mustChangePassword", is(true))).andReturn();
         s = (MockHttpSession) res.getRequest().getSession(false);
 
@@ -66,7 +68,7 @@ class FirstStartTest {
         mvc.perform(get("/api/auth/config")).andExpect(jsonPath("$.firstStart", is(false)))
             .andExpect(jsonPath("$.defaultPassword", is("")));
         mvc.perform(post("/api/auth/login").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin\",\"password\":\"superbistro\"}"))
+                .content("{\"email\":\"" + Launcher.DEFAULT_LOGIN + "\",\"password\":\"superbistro\"}"))
             .andExpect(status().isUnauthorized());
     }
 }

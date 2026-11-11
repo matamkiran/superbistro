@@ -71,8 +71,8 @@ class BuiltInDatabaseBackupTest {
 
     @Test
     void backupAndRestoreRoundTrip() throws Exception {
-        MockHttpSession s = login("/api/auth/signup",
-            "{\"restaurantName\":\"Backup Test\",\"name\":\"Owner\",\"email\":\"backup-owner@example.com\",\"password\":\"secret123\"}");
+        TestOwners.create(ctx, "Backup Test", "backup-owner@example.com", "secret123");
+        MockHttpSession s = login("/api/auth/login", "{\"email\":\"backup-owner@example.com\",\"password\":\"secret123\"}");
         String dosa = JsonPath.read(body(post("/api/menu").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)
             .content("{\"name\":\"Masala Dosa\",\"price\":70,\"category\":\"Breakfast\",\"veg\":true}")), "$.id");
         mvc.perform(post("/api/orders").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)

@@ -18,7 +18,7 @@ if not exist target\superbistro.jar (
   call mvnw.cmd -B -DskipTests package || exit /b 1
 )
 
-set VERSION=1.0.1
+set VERSION=1.0.2
 rmdir /s /q dist 2>nul
 mkdir dist\input
 copy /y target\superbistro.jar dist\input\ >nul

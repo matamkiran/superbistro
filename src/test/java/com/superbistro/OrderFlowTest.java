@@ -39,12 +39,13 @@ class OrderFlowTest {
     }
 
     private MockHttpSession signup(String restaurant, String email) throws Exception {
+        TestOwners.create(ctx, restaurant, email, "secret123");
         MockHttpSession session = new MockHttpSession();
-        var res = mvc.perform(post("/api/auth/signup").session(session).with(csrf())
+        var res = mvc.perform(post("/api/auth/login").session(session).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"restaurantName":"%s","name":"Owner","email":"%s","password":"secret123"}
-                    """.formatted(restaurant, email)))
+                    {"email":"%s","password":"secret123"}
+                    """.formatted(email)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.user.role", is("OWNER")))
             .andReturn();
@@ -61,7 +62,9 @@ class OrderFlowTest {
     @Test
     void apiRequiresLogin() throws Exception {
         mvc.perform(get("/api/orders")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/auth/config")).andExpect(status().isOk()).andExpect(jsonPath("$.allowSignup", is(true)));
+        mvc.perform(post("/api/auth/signup").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().is4xxClientError()); // no sign-up: Super Bistro only
+        mvc.perform(get("/api/auth/config")).andExpect(status().isOk());
     }
 
     @Test

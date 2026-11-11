@@ -33,7 +33,6 @@ services:
       DB_USER: superbistro
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
       TIME_ZONE: ${TIME_ZONE:-Asia/Kolkata}
-      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     volumes:

@@ -2,16 +2,13 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 
 export default function Login({ onSignedIn }) {
-  const [mode, setMode] = useState("login");
-  const [allowSignup, setAllowSignup] = useState(false);
-  const [first, setFirst] = useState(null); // ready-made login on a fresh install
-  const [f, setF] = useState({ restaurantName: "", name: "", email: "", password: "" });
+  const [first, setFirst] = useState(null); // ready-made login on a fresh install / after a reset
+  const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api("GET", "auth/config").then((c) => {
-      setAllowSignup(!!c.allowSignup);
       if (c.firstStart) setFirst({ login: c.defaultLogin, password: c.defaultPassword });
     }).catch(() => {});
   }, []);
@@ -23,10 +20,7 @@ export default function Login({ onSignedIn }) {
     setErr("");
     setBusy(true);
     try {
-      const s = mode === "login"
-        ? await api("POST", "auth/login", { email: f.email, password: f.password })
-        : await api("POST", "auth/signup", f);
-      onSignedIn(s);
+      onSignedIn(await api("POST", "auth/login", { email: f.email, password: f.password }));
     } catch (ex) {
       setErr(ex.message);
     } finally {
@@ -43,48 +37,27 @@ export default function Login({ onSignedIn }) {
         </div>
         <p className="login-sub">Offline, Zomato and Swiggy orders in one place.</p>
 
-        {allowSignup && (
-          <div className="seg" role="group" aria-label="Sign in or create">
-            <button type="button" aria-pressed={mode === "login"} onClick={() => setMode("login")}>Sign in</button>
-            <button type="button" aria-pressed={mode === "signup"} onClick={() => setMode("signup")}>Create restaurant</button>
-          </div>
-        )}
-
         <form className="form-grid" onSubmit={submit}>
-          {mode === "signup" && (
-            <>
-              <div className="field">
-                <label htmlFor="l-rest">Restaurant name</label>
-                <input className="input" id="l-rest" value={f.restaurantName} onChange={set("restaurantName")} required placeholder="e.g. Super Bistro" />
-              </div>
-              <div className="field">
-                <label htmlFor="l-name">Your name</label>
-                <input className="input" id="l-name" value={f.name} onChange={set("name")} required autoComplete="name" />
-              </div>
-            </>
-          )}
           <div className="field">
-            <label htmlFor="l-email">{mode === "login" ? "Login (email or username)" : "Email"}</label>
-            <input className="input" id="l-email" type={mode === "login" ? "text" : "email"} autoCapitalize="none" value={f.email} onChange={set("email")} required autoComplete="username" />
+            <label htmlFor="l-email">Login (email)</label>
+            <input className="input" id="l-email" type="text" autoCapitalize="none" value={f.email} onChange={set("email")} required autoComplete="username" />
           </div>
           <div className="field">
             <label htmlFor="l-pass">Password</label>
-            <input className="input" id="l-pass" type="password" value={f.password} onChange={set("password")} required minLength={mode === "signup" ? 8 : undefined}
-              autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder={mode === "signup" ? "At least 8 characters" : ""} />
+            <input className="input" id="l-pass" type="password" value={f.password} onChange={set("password")} required autoComplete="current-password" />
           </div>
-          {mode === "login" && first && (
+          {first && (
             <div className="first-start">
               <p>Sign in with <code>{first.login}</code> and password <code>{first.password}</code>.
                 You'll choose your own password next.</p>
-              <button type="button" className="btn sm" onClick={() => setF({ ...f, email: first.login, password: first.password })}>Fill in</button>
+              <button type="button" className="btn sm" onClick={() => setF({ email: first.login, password: first.password })}>Fill in</button>
             </div>
           )}
           {err && <div className="form-err" role="alert">{err}</div>}
-          <button className="btn primary place" disabled={busy}>
-            {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create restaurant"}
-          </button>
+          <button className="btn primary place" disabled={busy}>{busy ? "Please wait…" : "Sign in"}</button>
         </form>
-        {mode === "signup" && <p className="login-foot">You become the owner. Add cashier and kitchen logins later in Settings.</p>}
+        <About />
+        <p className="login-foot">Forgot the password? On the billing PC: close Super Bistro, then Start → Super Bistro → Reset-Super-Bistro-Password.</p>
       </section>
     </div>
   );
@@ -137,6 +110,22 @@ export function ChangePassword({ onDone, onCancel }) {
           <button type="button" className="btn" onClick={onCancel}>Sign out</button>
         </form>
       </section>
+    </div>
+  );
+}
+
+const ADDRESS = "Sri Vara Nilayam, 148, 2nd Cross Rd, Sahakar Nagar, H A Farm Post, Maruthi Nagar, Dasarahalli, Bengaluru, Karnataka 560024";
+const MAP = "https://maps.app.goo.gl/14f1R2zu5z1gddjq6";
+
+/** About Super Bistro: address, phone and the way there. */
+export function About() {
+  return (
+    <div className="about">
+      <h2>About Super Bistro</h2>
+      <p>{ADDRESS}</p>
+      <p>Very near Manyata Tech Park and Brigade Magnum.</p>
+      <p>Phone: <a href="tel:+918147284442">081472 84442</a></p>
+      <a className="btn sm" href={MAP} target="_blank" rel="noopener noreferrer">Open in Google Maps</a>
     </div>
   );
 }

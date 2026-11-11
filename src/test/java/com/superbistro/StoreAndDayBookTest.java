@@ -59,8 +59,8 @@ class StoreAndDayBookTest {
 
     @Test
     void storeManagerDay() throws Exception {
-        MockHttpSession s = login("/api/auth/signup",
-            "{\"restaurantName\":\"Store Test\",\"name\":\"Owner\",\"email\":\"store-owner@example.com\",\"password\":\"secret123\"}");
+        TestOwners.create(ctx, "Store Test", "store-owner@example.com", "secret123");
+        MockHttpSession s = login("/api/auth/login", "{\"email\":\"store-owner@example.com\",\"password\":\"secret123\"}");
 
         // What I have: rice is below its minimum, oil is fine.
         mvc.perform(post("/api/stock").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON)

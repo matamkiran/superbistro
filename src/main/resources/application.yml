@@ -31,8 +31,6 @@ server:
 superbistro:
   # Orders are numbered #1, #2, ... per restaurant per day in this time zone.
   time-zone: ${TIME_ZONE:Asia/Kolkata}
-  # Set ALLOW_SIGNUP=false on a private install once your restaurant account exists.
-  allow-signup: ${ALLOW_SIGNUP:true}
   # EMBEDDED_DB=true: start a built-in PostgreSQL in DATA_DIR instead of connecting to DB_URL.
   # Used by the Windows installer so the client installs nothing else.
   embedded-db: ${EMBEDDED_DB:false}

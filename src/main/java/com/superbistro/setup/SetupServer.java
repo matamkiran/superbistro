@@ -99,8 +99,6 @@ public final class SetupServer {
 
         if (host.isEmpty() || !portStr.matches("\\d{2,5}")) { json(ex, 400, err("Enter the PostgreSQL server and port (usually localhost and 5432).")); return; }
         if (!SAFE_NAME.matcher(dbName).matches()) { json(ex, 400, err("The database name can use lowercase letters, digits and _ only.")); return; }
-        String problem = ownerProblem(f);
-        if (problem != null) { json(ex, 400, err(problem)); return; }
 
         String appPassword = randomPassword();
         String base = "jdbc:postgresql://" + host + ":" + portStr + "/";
@@ -147,7 +145,7 @@ public final class SetupServer {
         p.setProperty("DB_URL", base + dbName);
         p.setProperty("DB_USER", dbName);
         p.setProperty("DB_PASSWORD", appPassword);
-        p.setProperty("ALLOW_SIGNUP", "on".equals(f.get("allowSignup")) ? "true" : "false");
+        p.setProperty("READY_MADE", "true");
         Path pgDump = PgTools.findPgDump(f.get("pgDump"));
         if (pgDump != null) p.setProperty("PG_DUMP", pgDump.toString());
         Launcher.write(dataDir.resolve(Launcher.CONFIG_FILE), p, "Super Bistro settings, written by first-time setup. Keep this file private.");
@@ -164,22 +162,12 @@ public final class SetupServer {
             json(ex, 400, err("This copy of Super Bistro has no built-in database for this computer. Choose \"My own PostgreSQL server\"."));
             return;
         }
-        String problem = ownerProblem(f);
-        if (problem != null) { json(ex, 400, err(problem)); return; }
 
         Properties p = new Properties();
         p.setProperty("EMBEDDED_DB", "true");
-        p.setProperty("ALLOW_SIGNUP", "on".equals(f.get("allowSignup")) ? "true" : "false");
+        p.setProperty("READY_MADE", "true");
         Launcher.write(dataDir.resolve(Launcher.CONFIG_FILE), p, "Super Bistro settings, written by first-time setup. Keep this file private.");
         finish(ex, f, "");
-    }
-
-    /** Checks the restaurant and owner fields; returns a message, or null when they're fine. */
-    private static String ownerProblem(Map<String, String> f) {
-        if (f.getOrDefault("restaurantName", "").isBlank() || f.getOrDefault("ownerName", "").isBlank()) return "Enter the restaurant name and your name.";
-        if (!EMAIL.matcher(f.getOrDefault("email", "").trim()).matches()) return "Enter a valid email for the owner login.";
-        if (f.getOrDefault("password", "").length() < 8) return "The owner password must be at least 8 characters.";
-        return null;
     }
 
     /** Saves the owner for the first start, turns on autostart, answers the page and starts the app. */
@@ -187,8 +175,7 @@ public final class SetupServer {
         if (isWindows() && "on".equals(f.get("autostart"))) {
             registerWindowsAutostart();
         }
-        BootstrapOwner.set(new BootstrapOwner(f.get("restaurantName").trim(), f.get("ownerName").trim(),
-            f.get("email").trim().toLowerCase(Locale.ROOT), new BCryptPasswordEncoder().encode(f.get("password"))));
+        // Super Bistro, its menu and the ready-made admin login are created by the app on first start (READY_MADE).
         json(ex, 200, Map.of("ok", true, "pgDump", pgDump));
 
         // Hand the port over to the real app.

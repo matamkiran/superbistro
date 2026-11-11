@@ -9,4 +9,3 @@ spring:
       ddl-auto: validate
 superbistro:
   time-zone: Asia/Kolkata
-  allow-signup: true

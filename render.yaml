@@ -16,8 +16,6 @@ services:
         sync: false
       - key: TIME_ZONE
         value: Asia/Kolkata
-      - key: ALLOW_SIGNUP
-        value: "true"
       # Render terminates HTTPS in front of the app.
       - key: SERVER_FORWARD_HEADERS_STRATEGY
         value: framework

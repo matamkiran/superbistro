@@ -37,6 +37,13 @@ jobs:
           }
         shell: pwsh
 
+      - name: Ready-made admin login (kept out of the public code)
+        shell: pwsh
+        env:
+          DEFAULT_ADMIN: ${{ secrets.DEFAULT_ADMIN_LOGIN }}
+        run: |
+          if ($env:DEFAULT_ADMIN) { "login=$env:DEFAULT_ADMIN" | Out-File -FilePath src\main\resources\seed\admin.properties -Encoding ascii }
+
       - name: Build and test the app
         run: .\mvnw.cmd -B package
         shell: cmd

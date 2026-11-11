@@ -94,13 +94,27 @@ public final class Launcher {
         }
     }
 
-    public static final String DEFAULT_LOGIN = "admin";
+    /** Ready-made admin login: set at build time in seed/admin.properties (login=...), otherwise "admin". */
+    public static final String DEFAULT_LOGIN = defaultLogin();
+
+    private static String defaultLogin() {
+        try (InputStream in = Launcher.class.getResourceAsStream("/seed/admin.properties")) {
+            if (in != null) {
+                Properties p = new Properties();
+                p.load(in);
+                String v = p.getProperty("login", "").trim().toLowerCase(Locale.ROOT);
+                if (!v.isEmpty()) return v;
+            }
+        } catch (IOException ignored) {
+            // fall back
+        }
+        return "admin";
+    }
     public static final String DEFAULT_PASSWORD = "superbistro";
 
     private static void autoSetup(Path dataDir) throws IOException {
         Properties p = new Properties();
         p.setProperty("EMBEDDED_DB", "true");
-        p.setProperty("ALLOW_SIGNUP", "false");
         p.setProperty("READY_MADE", "true");
         write(dataDir.resolve(CONFIG_FILE), p, "Super Bistro settings, written on first start. Keep this file private.");
         if (System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {

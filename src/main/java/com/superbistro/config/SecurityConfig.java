@@ -46,7 +46,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/config").permitAll()
+                .requestMatchers("/api/auth/login", "/api/auth/config").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())
             .securityContext(sc -> sc.securityContextRepository(contextRepository))

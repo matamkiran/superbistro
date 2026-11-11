@@ -27,7 +27,7 @@ see what sells best, and back everything up to Google Drive every night.
 - **System** (main admin) — nightly backups, Google Drive, backup history, download a backup,
   **restore** a backup (one click, or upload a backup file from Drive / another PC).
 
-Multi-restaurant (SaaS): every restaurant only sees its own data.
+Made for one restaurant, Super Bistro: no sign-up page; the owner adds staff logins in Settings.
 
 **Roles:** *Owner* everything · *Manager* orders, store, purchases, day book (not prices, staff or settings) ·
 *Staff* orders and the kitchen board.
@@ -148,7 +148,6 @@ Environment variables (or lines in `superbistro.properties`, written by setup):
 | `DATA_DIR` | `C:\ProgramData\SuperBistro` (Windows), `~/SuperBistro` | settings, backups |
 | `PORT` | `8080` | web port |
 | `TIME_ZONE` | `Asia/Kolkata` | order numbers restart at #1 each day; backup time |
-| `ALLOW_SIGNUP` | from setup | `true` lets other restaurants sign up (SaaS) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | alternative to entering them on the System page |
 | `OPEN_BROWSER` | `false` | open the browser on start (the installer sets it) |
 | `EMBEDDED_DB` | from setup | `true`: built-in PostgreSQL (data in `DATA_DIR/pgdata`, port 54329, Windows and Mac builds) |

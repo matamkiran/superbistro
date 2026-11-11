@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -36,13 +35,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-
-    public record SignupRequest(
-        @NotBlank @Size(max = 80) String restaurantName,
-        @NotBlank @Size(max = 80) String name,
-        @NotBlank @Email @Size(max = 160) String email,
-        @NotBlank @Size(min = 8, max = 72, message = "must be 8 to 72 characters") String password) {
-    }
 
     public record LoginRequest(@NotBlank String email, @NotBlank String password) {
     }
@@ -85,7 +77,7 @@ public class AuthController {
         this.props = props;
     }
 
-    /** Public: lets the login screen know whether to offer "Create a restaurant". */
+    /** Public: what the login screen needs to know before anyone signs in. */
     @GetMapping("/config")
     public Map<String, Object> config() {
         // On a fresh install the login screen shows the ready-made login until its password is changed.
@@ -93,26 +85,9 @@ public class AuthController {
         String login = users.findAll().stream().filter(u -> u.isPlatformAdmin() && u.isMustChangePassword())
             .map(AppUser::getEmail).findFirst().orElse(null);
         boolean firstStart = login != null;
-        return Map.of("allowSignup", props.allowSignup(), "firstStart", firstStart,
+        return Map.of("firstStart", firstStart,
             "defaultLogin", firstStart ? login : "",
             "defaultPassword", firstStart ? com.superbistro.setup.Launcher.DEFAULT_PASSWORD : "");
-    }
-
-    @PostMapping("/signup")
-    @Transactional
-    public SessionDto signup(@Valid @RequestBody SignupRequest req, HttpServletRequest http, HttpServletResponse res) {
-        if (!props.allowSignup()) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "New sign-ups are turned off on this server");
-        }
-        String email = req.email().trim().toLowerCase(Locale.ROOT);
-        if (users.existsByEmail(email)) {
-            throw new ApiException(HttpStatus.CONFLICT, "That email already has an account. Sign in instead.");
-        }
-        Restaurant r = restaurants.save(new Restaurant(req.restaurantName().trim(), new BigDecimal("5.00")));
-        AppUser owner = new AppUser(r.getId(), email, req.name().trim(), encoder.encode(req.password()), Role.OWNER);
-        owner.setPlatformAdmin(users.count() == 0); // the very first account on a server runs it
-        users.save(owner);
-        return startSession(email, req.password(), http, res);
     }
 
     @PostMapping("/login")
