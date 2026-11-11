@@ -67,7 +67,21 @@ jobs:
           }
           & taskkill /T /F /PID $p.Id 2>&1 | Out-Null
           Get-Process postgres, pg_ctl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          if (-not $ok) { Get-Content "$env:RUNNER_TEMP\sb-out.txt" -Tail 80; Get-Content "$env:RUNNER_TEMP\sb-err.txt" -Tail 40; throw "Super Bistro did not start from the packed app" }
+          if (-not $ok) {
+            "---- app output (database lines) ----"
+            Select-String -Path "$env:RUNNER_TEMP\sb-out.txt" -Pattern "initdb|postgres|FATAL|could not|denied|dll|WARN" | Select-Object -First 60 | ForEach-Object { $_.Line.Substring(0, [Math]::Min(300, $_.Line.Length)) }
+            "---- runtime bin ----"
+            Get-ChildItem "dist\portable\SuperBistro\runtime\bin" -Filter *.dll | Select-Object -ExpandProperty Name
+            $pg = Get-ChildItem "$data\pgbin" -Directory | Select-Object -First 1
+            if ($pg) {
+              "---- pg bin dlls ----"
+              Get-ChildItem "$($pg.FullName)\bin" -Filter *.dll | Select-Object -ExpandProperty Name
+              "---- initdb run directly ----"
+              & "$($pg.FullName)\bin\initdb.exe" -A trust -U postgres -D "$env:RUNNER_TEMP\pgtry" -E UTF-8 2>&1 | Select-Object -First 40
+              "initdb exit code: $LASTEXITCODE"
+            }
+            throw "Super Bistro did not start from the packed app"
+          }
           "Packed app started and served the login page."
           Get-ChildItem dist\*.exe, dist\*.zip | ForEach-Object { "{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
 
